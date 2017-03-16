@@ -24,7 +24,7 @@ class HistoryPreprocessor(Preprocessor):
     """
 
     def __init__(self, history_length=1):
-        pass
+        self.history_length = history_length
 
     def process_state_for_network(self, state):
         """You only want history when you're deciding the current action to take."""
@@ -35,7 +35,7 @@ class HistoryPreprocessor(Preprocessor):
 
         Useful when you start a new episode.
         """
-        pass
+        self.history_length = 1
 
     def get_config(self):
         return {'history_length': self.history_length}
@@ -151,4 +151,12 @@ class PreprocessorSequence(Preprocessor):
     return history.process_state_for_network(state)
     """
     def __init__(self, preprocessors):
-        pass
+        self.preprocessors = preprocessors
+ 
+    def preprocess_state(state, self.preprocessors):
+
+        new_state = state
+        for pp in self.preprocessors:
+            new_state = pp.process_state_for_network(new_state)
+        return new_state
+

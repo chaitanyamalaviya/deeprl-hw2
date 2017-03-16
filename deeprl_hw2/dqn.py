@@ -1,4 +1,5 @@
 """Main DQN agent."""
+from keras.optimizers import Adam
 
 class DQNAgent:
     """Class implementing DQN.
@@ -48,7 +49,7 @@ class DQNAgent:
                  num_burn_in,
                  train_freq,
                  batch_size):
-    
+
         self.q_network = q_network
         self.preprocessor = preprocessor
         self.memory = memory
@@ -76,7 +77,10 @@ class DQNAgent:
         keras.optimizers.Optimizer class. Specifically the Adam
         optimizer.
         """
-        pass
+        adam = Adam(lr=1e-6)
+
+        self.q_network.compile(loss=loss_func, optimizer=adam)
+        print("Model created...")
 
     def calc_q_values(self, state):
         """Given a state (or batch of states) calculate the Q-values.
@@ -110,7 +114,9 @@ class DQNAgent:
         --------
         selected action
         """
-        pass
+
+        if is_training:
+
 
     def update_policy(self):
         """Update your policy.
@@ -154,7 +160,18 @@ class DQNAgent:
           How long a single episode should last before the agent
           resets. Can help exploration.
         """
-        pass
+        self.target_q_network = get_hard_target_model_updates(target, source)
+
+        for _ in range(num_iterations):
+          init_obs = env.reset()
+          for t in range(max_episode_len):
+            state = []
+            for _ in range(frame_count):
+              obs, reward, is_terminal, debugging = env.step()
+              state.append(obs)
+            state = np.transpose(np.asarray(state))
+            preprocessed_state = self.preprocessor(state)
+
 
     def evaluate(self, env, num_episodes, max_episode_length=None):
         """Test your agent with a provided environment.

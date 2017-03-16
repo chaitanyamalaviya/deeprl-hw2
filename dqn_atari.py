@@ -8,7 +8,7 @@ import numpy as np
 import tensorflow as tf
 from keras.layers import (Activation, Convolution2D, Dense, Flatten, Input,
                           Permute)
-from keras.models import Model
+from keras.models import Model, Sequential
 from keras.optimizers import Adam
 from keras import backend as K
 
@@ -53,18 +53,15 @@ def create_model(window, input_shape, num_actions,
 
     with tf.name_scope('deepq'): 
         model = Sequential()
-        model.add(Convolution2D(16, 8, 8, subsample=(8,8),init=lambda shape, name: normal(shape, scale=0.01, name=name), border_mode='same',input_shape=input_shape))
+        model.add(Convolution2D(16, 8, 8, input_shape=input_shape))
         model.add(Activation('relu'))
-        model.add(Convolution2D(32, 4, 4, subsample=(4,4),init=lambda shape, name: normal(shape, scale=0.01, name=name), border_mode='same'))
+        model.add(Convolution2D(32, 4, 4))
         model.add(Activation('relu'))
         model.add(Flatten())
-        model.add(Dense(256, init=lambda shape, name: normal(shape, scale=0.01, name=name)))
+        model.add(Dense(256, name=name))
         model.add(Activation('relu'))
-        model.add(Dense(num_actions,init=lambda shape, name: normal(shape, scale=0.01, name=name)))
-   
-    adam = Adam(lr=1e-6)
-    model.compile(loss='mse',optimizer=adam)
-    print("Model created...")
+        model.add(Dense(num_actions, name=name))
+
     return model
 
 
@@ -112,6 +109,7 @@ def main():  # noqa: D103
         '-o', '--output', default='atari-v0', help='Directory to save data to')
     parser.add_argument('--seed', default=0, type=int, help='Random seed')
     parser.add_argument('--iters', default=5000000, type=int, help='Number of interactions with environment')
+    parser.add_argument('--mb_size', default=32, type=int, help='Minibatch size')
     parser.add_argument('--max_episode_len', default=200, type=int, help='Maximum length of episode')
     parser.add_argument('--frame_count', default=4, type=int, help='Number of frames to feed to Q-network')
     parser.add_argument('--eps', default=0.05, type=float, help='Epsilon value for epsilon-greedy exploration')
@@ -128,21 +126,20 @@ def main():  # noqa: D103
 
     # Create model
     model = create_model(args.frame_count, env.observation_space.shape, env.action_space.n, args.env+"-test")
-    
+
     # Create session
     sess = tf.Session()
     K.set_session(sess)
 
+    # Initialize replay memory
     replay_mem = ReplayMemory(args.replay_mem_size)
 
-    for _ in range(args.iters):
-        init_obs = env.reset()
-        for t in range(args.max_episode_len):
-            for _ in range(args.frame_count):
-                obs, reward, is_terminal, debugging = env.step()
-            if is_terminal: break
-            PreProcessorSequence
-            model.fit(obs)
+    # Create agent
+    dqn = DQNAgent(model, PreProcessorSequence(), replay_mem, 
+                   Policy(), args.discount, 10000, args.frame_count,
+                   args.mb_size)
+
+    dqn.fit(env, args.iters, args.max_episode_len )
 
 
     # here is where you should start up a session,
