@@ -152,7 +152,7 @@ class PreprocessorSequence(Preprocessor):
     """
     def __init__(self, preprocessors):
         self.preprocessors = preprocessors
- 
+        
     def preprocess_state(state, self.preprocessors):
 
         new_state = state

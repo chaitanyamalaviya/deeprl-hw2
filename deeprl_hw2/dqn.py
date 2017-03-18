@@ -60,7 +60,11 @@ class DQNAgent:
         self.train_freq = train_freq
         self.batch_size = batch_size
 
-    def compile(self, optimizer, loss_func):
+        self.env = env
+        self.sampling = True
+        self.is_training = True
+
+    def compile(self):
         """Setup all of the TF graph variables/ops.
 
         This is inspired by the compile method on the
@@ -77,10 +81,14 @@ class DQNAgent:
         keras.optimizers.Optimizer class. Specifically the Adam
         optimizer.
         """
+
+        self.target_q_network = get_hard_target_model_updates(target, self.q_network)
         adam = Adam(lr=1e-6)
 
-        self.q_network.compile(loss=loss_func, optimizer=adam)
-        print("Model created...")
+        self.q_network.compile(loss=mean_huber_loss,
+                               optimizers=adam)
+
+        print("Model compiled.")
 
     def calc_q_values(self, state):
         """Given a state (or batch of states) calculate the Q-values.
@@ -91,7 +99,8 @@ class DQNAgent:
         ------
         Q-values for the state(s)
         """
-        pass
+        actions = self.q_network.predict_on_batch(state) # state is actually a batch of states
+        return actions
 
     def select_action(self, state, **kwargs):
         """Select the action based on the current state.
@@ -115,13 +124,23 @@ class DQNAgent:
         selected action
         """
 
-        if is_training:
+        if self.is_training and self.sampling:
+          policy = self.policy.UniformRandomPolicy(self.env.action_space.n)
+          chosen_action = policy.select_action()
+        elif self.is_training:
+          policy = self.policy.LinearDecayGreedyEpsilonPolicy()
+          chosen_action = policy.select_action()
+        else:
+          policy = self.policy.GreedyEpsilonPolicy()
+          chosen_action = policy.select_action()
+
+        return chosen_action
 
 
     def update_policy(self):
         """Update your policy.
 
-        Behavior may differ based on what stage of training your
+        Behavior may differ based on what stage you're
         in. If you're in training mode then you should check if you
         should update your network parameters based on the current
         step and the value you set for train_freq.
@@ -133,7 +152,25 @@ class DQNAgent:
         You might want to return the loss and other metrics as an
         output. They can help you monitor how training is going.
         """
-        pass
+        state = []
+        for i in range(self.memory.window_length):
+          state.append(env.reset())
+
+        state = np.transpose(np.asarray(state))
+
+        if self.is_training and self.sampling:
+          for i in range(self.num_burn_in):
+            for j in range(self.memory.window_length):
+              obs, reward, is_terminal, debugging = self.env.step(self.select_action(state))
+              state = obs
+
+        memory.sample(self.batch_size)
+
+        Calculate target values
+        Update network
+        Update target values
+        Return loss, other useful metrics
+
 
     def fit(self, env, num_iterations, max_episode_length=None):
         """Fit your model to the provided environment.
@@ -160,7 +197,15 @@ class DQNAgent:
           How long a single episode should last before the agent
           resets. Can help exploration.
         """
+
+        First fill up replay memory with randomly sampled actions
+
+
+        model.fit(x_train, y_train, batch_size=16, epochs=10)
+        score = model.evaluate(x_test, y_test, batch_size=16)
         self.target_q_network = get_hard_target_model_updates(target, source)
+        tbCallBack = keras.callbacks.TensorBoard(log_dir='./Graph', histogram_freq=0, write_graph=True, write_images=True)
+
 
         for _ in range(num_iterations):
           init_obs = env.reset()
@@ -171,6 +216,7 @@ class DQNAgent:
               state.append(obs)
             state = np.transpose(np.asarray(state))
             preprocessed_state = self.preprocessor(state)
+
 
 
     def evaluate(self, env, num_episodes, max_episode_length=None):
@@ -186,4 +232,6 @@ class DQNAgent:
         You can also call the render function here if you want to
         visually inspect your policy.
         """
-        pass
+        Run policy
+        Collect stats - reward, avg episode length
+        Render env

@@ -157,7 +157,7 @@ class LinearDecayGreedyEpsilonPolicy(Policy):
           Selected action.
         """
         if is_training:
-
+            
         else:
             return self.end_value
 

@@ -7,7 +7,7 @@ import random
 import numpy as np
 import tensorflow as tf
 from keras.layers import (Activation, Convolution2D, Dense, Flatten, Input,
-                          Permute)
+                          Permute, InputLayer)
 from keras.models import Model, Sequential
 from keras.optimizers import Adam
 from keras import backend as K
@@ -17,7 +17,6 @@ import deeprl_hw2 as tfrl
 from deeprl_hw2.dqn import DQNAgent
 from deeprl_hw2.objectives import mean_huber_loss
 from deeprl_hw2.core import Preprocessor
-import preprocessors
 
 
 def create_model(window, input_shape, num_actions,
@@ -41,7 +40,7 @@ def create_model(window, input_shape, num_actions,
       The expected input image size.
     num_actions: int
       Number of possible actions. Defined by the gym environment.
-    model_name: str
+    model_name: str1
       Useful when debugging. Makes the model show up nicer in tensorboard.
 
     Returns
@@ -50,17 +49,17 @@ def create_model(window, input_shape, num_actions,
       The Q-model.
     """
     print("Creating model...")
-
-    with tf.name_scope('deepq'): 
-        model = Sequential()
-        model.add(Convolution2D(16, 8, 8, input_shape=input_shape))
-        model.add(Activation('relu'))
-        model.add(Convolution2D(32, 4, 4))
-        model.add(Activation('relu'))
-        model.add(Flatten())
-        model.add(Dense(256, name=name))
-        model.add(Activation('relu'))
-        model.add(Dense(num_actions, name=name))
+    #img = tf.placeholder(tf.float32, shape=input_shape + (window,))
+    model = Sequential()
+    #model.add(InputLayer(input_tensor=custom_input_tensor, input_shape=input_shape + (window,)))
+    model.add(Convolution2D(16, 8, 8, input_shape= input_shape + (window,)))
+    model.add(Activation('relu'))
+    model.add(Convolution2D(32, 4, 4))
+    model.add(Activation('relu'))
+    model.add(Flatten())
+    model.add(Dense(256))
+    model.add(Activation('relu'))
+    model.add(Dense(num_actions))
 
     return model
 
@@ -119,27 +118,33 @@ def main():  # noqa: D103
     args = parser.parse_args()
     #args.input_shape = tuple(args.input_shape)
 
+    # Get output folder
     args.output = get_output_folder(args.output, args.env)
 
+    # Create environment
     env = gym.make(args.env)
     env.reset()
 
     # Create model
-    model = create_model(args.frame_count, env.observation_space.shape, env.action_space.n, args.env+"-test")
+    preprocessed_input_shape = (84,84)
+    model = create_model(args.frame_count, preprocessed_input_shape, env.action_space.n, args.env+"-test")
 
     # Create session
     sess = tf.Session()
     K.set_session(sess)
 
     # Initialize replay memory
-    replay_mem = ReplayMemory(args.replay_mem_size)
+    replay_mem = ReplayMemory(args.replay_mem_size, args.frame_count)
 
     # Create agent
-    dqn = DQNAgent(model, PreProcessorSequence(), replay_mem, 
-                   Policy(), args.discount, 10000, args.frame_count,
+    preprocessor_seq = PreProcessor.PreProcessorSequence()
+    policy = Policy()
+    dqn = DQNAgent (model, preprocessor_seq, replay_mem, 
+                   policy, args.discount, 10000, args.frame_count,
                    args.mb_size)
 
-    dqn.fit(env, args.iters, args.max_episode_len )
+    dqn.compile()
+    dqn.fit(env, args.iters, args.max_episode_len)
 
 
     # here is where you should start up a session,
