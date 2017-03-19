@@ -21,7 +21,7 @@ from deeprl_hw2.preprocessors import PreprocessorSequence, AtariPreprocessor
 
 
 def create_model(window, input_shape, num_actions,
-                 model_name='q_network'):  # noqa: D103
+                 model_name='q_network', model_type='deep'):  # noqa: D103
     """Create the Q-network model.
 
     Use Keras to construct a keras.models.Model instance (you can also
@@ -53,14 +53,24 @@ def create_model(window, input_shape, num_actions,
     #img = tf.placeholder(tf.float32, shape=input_shape + (window,))
     model = Sequential()
     #model.add(InputLayer(input_tensor=custom_input_tensor, input_shape=input_shape + (window,)))
-    model.add(Conv2D(16, (8, 8), input_shape= (84, 84, 4)))
-    model.add(Activation('relu'))
-    model.add(Conv2D(32, (4, 4)))
-    model.add(Activation('relu'))
-    model.add(Flatten())
-    model.add(Dense(256))
-    model.add(Activation('relu'))
-    model.add(Dense(num_actions))
+    
+    if model_type=='deep':
+
+        model.add(Conv2D(16, (8, 8), input_shape= (84, 84, 4)))
+        model.add(Activation('relu'))
+        model.add(Conv2D(32, (4, 4)))
+        model.add(Activation('relu'))
+        model.add(Flatten())
+        model.add(Dense(256))
+        model.add(Activation('relu'))
+        model.add(Dense(num_actions))
+
+    elif model_type=='linear':
+
+        model.add(Flatten(input_shape= (84, 84, 4)))
+        model.add(Dense(256))
+        model.add(Activation('relu'))
+        model.add(Dense(num_actions))
 
     return model
 
@@ -131,7 +141,9 @@ def main():  # noqa: D103
 
     # Create model
     preprocessed_input_shape = (84,84)
-    model = create_model(args.frame_count, preprocessed_input_shape, env.action_space.n, args.env+"-test")
+    # Model type should probably be given by a config argument,to support linear/deep networks
+    model_type = 'linear'
+    model = create_model(args.frame_count, preprocessed_input_shape, env.action_space.n, args.env+"-test", model_type)
 
     # Create session
     sess = tf.Session()

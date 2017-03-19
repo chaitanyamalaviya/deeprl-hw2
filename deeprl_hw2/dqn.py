@@ -221,7 +221,7 @@ class DQNAgent:
         #model.fit(x_train, y_train, batch_size=16, epochs=10)
         #score = model.evaluate(x_test, y_test, batch_size=16)
         tot_iters = 0
-        cum_reward = 0
+        
 
         for i in range(num_iterations):
           chosen_policy = policy.GreedyEpsilonPolicy(self.epsilon)
@@ -229,7 +229,8 @@ class DQNAgent:
           preprocessed_state = self.preprocessor.preprocess_state(state, mem=True)
           state = np.stack([preprocessed_state] * 4, axis=2)
           state = np.expand_dims(state, axis=0)
-          loss = 0
+          cum_reward = 0
+          cum_loss = 0
 
           for t in range(max_episode_length):
 
@@ -256,17 +257,18 @@ class DQNAgent:
               states_batch, actions_batch, rewards_batch, next_states_batch, is_terminal_batch = map(np.array, zip(*sample_props))
 
               ## Calculate q-learning targets
-              q_values_next = self.q_network.predict_on_batch(next_states_batch)
-              best_actions = np.argmax(q_values_next, axis=1)
+              #q_values_next = self.q_network.predict_on_batch(next_states_batch)
+              #best_actions = np.argmax(q_values_next, axis=1)
 
               q_values_next_target = self.target_q_network.predict(next_states_batch)
+              best_actions = np.argmax(q_values_next_target, axis=1)
 
               targets_batch = rewards_batch + np.invert(is_terminal_batch).astype(np.float32) * \
               self.gamma * q_values_next_target[np.arange(self.batch_size), best_actions]
 
 
               ## Update parameters 
-              cum_loss += self.q_network.update_policy(states_batch, action_batch, targets_batch)
+              cum_loss += self.q_network.update_policy(states_batch, actions_batch, targets_batch)
               cum_reward += np.sum(rewards_batch)
 
               if is_terminal:
