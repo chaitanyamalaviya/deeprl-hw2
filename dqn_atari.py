@@ -137,7 +137,7 @@ def main():  # noqa: D103
     replay_mem = ReplayMemory(args.replay_mem_size, args.frame_count)
 
     # Create agent
-    preprocessor_seq = PreProcessor.PreProcessorSequence()
+    preprocessor_seq = PreProcessor.PreProcessorSequence(PreProcessor.AtariProcessor(preprocessed_input_shape))
     policy = Policy()
     dqn = DQNAgent (model, preprocessor_seq, replay_mem, 
                    policy, args.discount, 10000, args.frame_count,

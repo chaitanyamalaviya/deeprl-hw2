@@ -215,8 +215,8 @@ class ReplayMemory:
         self.memory = []
         self.cur = 0
 
-    def append(self, state, action, reward):
-        self.memory[self.cur] = Sample(state, action, reward)
+    def append(self, sample):
+        self.memory[self.cur] = sample
         self.cur = (self.cur+1) % self.max_size
 
     def end_episode(self, final_state, is_terminal):
@@ -224,10 +224,8 @@ class ReplayMemory:
 
     def sample(self, batch_size, indexes=None):
         sampled_batch = []
-        
-        for i in range(batch_size):
-          s = np.random.randint(self.max_size)
-          sampled_batch.append(self.memory[s])
+        idxs = random.sample(self.max_size, batch_size)
+        sampled_batch = [self.memory[s] for s in idxs]
 
         return sampled_batch
 
