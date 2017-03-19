@@ -6,7 +6,7 @@ import random
 
 import numpy as np
 import tensorflow as tf
-from keras.layers import (Activation, Convolution2D, Dense, Flatten, Input,
+from keras.layers import (Activation, Conv2D, Dense, Flatten, Input,
                           Permute, InputLayer)
 from keras.models import Model, Sequential
 from keras.optimizers import Adam
@@ -53,9 +53,9 @@ def create_model(window, input_shape, num_actions,
     #img = tf.placeholder(tf.float32, shape=input_shape + (window,))
     model = Sequential()
     #model.add(InputLayer(input_tensor=custom_input_tensor, input_shape=input_shape + (window,)))
-    model.add(Convolution2D(16, 8, 8, input_shape= input_shape + (window,)))
+    model.add(Conv2D(16, (8, 8), input_shape= (84, 84, 4)))
     model.add(Activation('relu'))
-    model.add(Convolution2D(32, 4, 4))
+    model.add(Conv2D(32, (4, 4)))
     model.add(Activation('relu'))
     model.add(Flatten())
     model.add(Dense(256))
@@ -63,7 +63,6 @@ def create_model(window, input_shape, num_actions,
     model.add(Dense(num_actions))
 
     return model
-
 
 def get_output_folder(parent_dir, env_name):
     """Return save folder.
@@ -145,7 +144,7 @@ def main():  # noqa: D103
     preprocessor_seq = PreprocessorSequence([AtariPreprocessor(preprocessed_input_shape)])
 
     dqn = DQNAgent (model, preprocessor_seq, replay_mem, 
-                   args.discount, args.target_update_freq, args.replay_mem_size,
+                   args.discount, args.target_update_freq, args.mb_size*3,
                    args.train_freq, args.mb_size, args.eps)
 
     dqn.compile()

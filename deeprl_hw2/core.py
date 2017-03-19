@@ -1,6 +1,6 @@
 """Core classes."""
 from collections import deque
-
+import random
 
 class Sample:
     """Represents a reinforcement learning sample.
@@ -39,6 +39,8 @@ class Sample:
       self.next_state = next_state
       self.is_terminal = is_terminal
 
+    def get_props(self):
+      return (self.state, self.action, self.reward, self.next_state, self.is_terminal)
 
 class Preprocessor:
     """Preprocessor base class.
@@ -212,11 +214,15 @@ class ReplayMemory:
         """
         self.max_size = max_size
         self.window_length = window_length
-        self.memory = [None]*self.max_size
+        self.memory = []
         self.cur = 0
 
     def append(self, sample):
-        self.memory[self.cur] = sample
+        if len(self.memory) == self.max_size: 
+          self.memory[self.cur] = sample
+        else: 
+          self.memory.append(sample)
+
         self.cur = (self.cur+1) % self.max_size
 
     def end_episode(self, final_state, is_terminal):
@@ -224,9 +230,7 @@ class ReplayMemory:
 
     def sample(self, batch_size, indexes=None):
         sampled_batch = []
-        idxs = random.sample(self.max_size, batch_size)
-        sampled_batch = [self.memory[s] for s in idxs]
-
+        sampled_batch = random.sample(self.memory, batch_size)
         return sampled_batch
 
     def clear(self):

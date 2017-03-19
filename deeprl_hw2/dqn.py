@@ -1,7 +1,9 @@
 """Main DQN agent."""
 from keras.optimizers import Adam
 from keras.models import Model, Sequential
+from keras.callbacks import TensorBoard
 from deeprl_hw2.core import Preprocessor, ReplayMemory, Sample
+from collections import namedtuple
 import utils, objectives, policy
 
 import numpy as np
@@ -165,7 +167,7 @@ class DQNAgent:
         pass
 
 
-    def fit(self, env, num_iterations, max_episode_length=None):
+    def fit(self, env, num_iterations, max_episode_length):
         """Fit your model to the provided environment.
 
         Its a good idea to print out things like loss, average reward,
@@ -195,26 +197,26 @@ class DQNAgent:
           print("Filling up replay memory..")
           chosen_policy = policy.UniformRandomPolicy(env.action_space.n)
           state = env.reset()
-          preprocessed_state = self.preprocessor.preprocess_state(state)
+          preprocessed_state = self.preprocessor.preprocess_state(state, mem=True)
           state = np.stack([preprocessed_state] * 4, axis=2)
 
           for i in range(self.num_burn_in):
               action = chosen_policy.select_action()
               next_state, reward, is_terminal, _ = env.step(action)
-              next_state = self.preprocessor.preprocess_state(next_state)
+              next_state = self.preprocessor.preprocess_state(next_state, mem=True)
               next_state = np.append(state[:,:,1:], np.expand_dims(next_state, 2), axis=2)
               self.memory.append(Sample(state, action, reward, next_state, is_terminal))
               if is_terminal:
                   state = env.reset()
-                  preprocessed_state = self.preprocessor.preprocess_state(state)
+                  preprocessed_state = self.preprocessor.preprocess_state(state, mem=True)
                   state = np.stack([preprocessed_state] * 4, axis=2)
               else:
                   state = next_state
 
 
         # Logging and Recording
-        env.monitor.start(output_folder, resume=True, video_callable=lambda count: count % 50 == 0)
-        tbCallBack = keras.callbacks.TensorBoard(log_dir='./Graph', histogram_freq=0, write_graph=True, write_images=True)
+        #env.monitor.start(output_folder, resume=True, video_callable=lambda count: count % 50 == 0)
+        tbCallBack = TensorBoard(log_dir='./Graph', histogram_freq=0, write_graph=True, write_images=True)
 
         #model.fit(x_train, y_train, batch_size=16, epochs=10)
         #score = model.evaluate(x_test, y_test, batch_size=16)
@@ -224,42 +226,54 @@ class DQNAgent:
         for i in range(num_iterations):
           chosen_policy = policy.GreedyEpsilonPolicy(self.epsilon)
           state = env.reset()
-          preprocessed_state = self.preprocessor.preprocess_state(state)
+          preprocessed_state = self.preprocessor.preprocess_state(state, mem=True)
           state = np.stack([preprocessed_state] * 4, axis=2)
+          state = np.expand_dims(state, axis=0)
           loss = 0
 
-          for t in range(max_episode_len):
+          for t in range(max_episode_length):
 
               env.render()
-              if tot_iters % self.target_update_freq == 0:
-                self.target_q_network = get_hard_target_model_updates(self.target_q_network, self.q_network)
 
+              ## Update target q-network at a frequency
+              if tot_iters+1 % self.target_update_freq == 0:
+                self.target_q_network = utils.get_hard_target_model_updates(self.target_q_network, self.q_network)
+
+              ## Get next state
               q_values = self.q_network.predict(state)
               chosen_action = chosen_policy.select_action(q_values)
               next_state, reward, is_terminal, _ = env.step(chosen_action)
-              next_state = self.preprocessor.preprocess_state(next_state)
+              next_state = self.preprocessor.preprocess_state(next_state, mem=True)
+              state = np.squeeze(state, axis=0)
               next_state = np.append(state[:,:,1:], np.expand_dims(next_state, 2), axis=2)
-              self.memory.append(Sample(state, action, reward, next_state, is_terminal))
-              samples = self.memory.sample(self.batch_size)
-              states_batch, actions_batch, rewards_batch, next_states_batch, is_terminal_batch = map(np.array, zip(*samples))
 
-              q_values_next = self.q_network.predict(next_states_batch)
+              ## Append current sample to replay memory
+              self.memory.append(Sample(state, action, reward, next_state, is_terminal))
+              
+              ## Sample minibatch from replay memory 
+              samples = self.memory.sample(self.batch_size)
+              sample_props  = [s.get_props() for s in samples]
+              states_batch, actions_batch, rewards_batch, next_states_batch, is_terminal_batch = map(np.array, zip(*sample_props))
+
+              ## Calculate q-learning targets
+              q_values_next = self.q_network.predict_on_batch(next_states_batch)
               best_actions = np.argmax(q_values_next, axis=1)
+
               q_values_next_target = self.target_q_network.predict(next_states_batch)
+
               targets_batch = rewards_batch + np.invert(is_terminal_batch).astype(np.float32) * \
               self.gamma * q_values_next_target[np.arange(self.batch_size), best_actions]
 
-              states_batch = np.array(states_batch)
-              loss = q_estimator.update(sess, states_batch, action_batch, targets_batch)
+
+              ## Update parameters 
+              cum_loss += self.q_network.update_policy(states_batch, action_batch, targets_batch)
+              cum_reward += np.sum(rewards_batch)
 
               if is_terminal:
                 break
 
               state = next_state
-              cum_reward += reward
               tot_iters += 1
-
-        env.monitor.close()
 
 
     def evaluate(self, env, num_episodes, max_episode_length=None):

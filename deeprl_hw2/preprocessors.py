@@ -90,18 +90,14 @@ class AtariPreprocessor(Preprocessor):
         We recommend using the Python Image Library (PIL) to do the
         image conversions.
         """
-        preprocessed_state = []
 
-        for frame in state:
-            im = Image.fromarray(frame)
-            im_gr = im.convert('L')
-            im_gr_scaled = im_gr.resize((self.new_size), Image.ANTIALIAS)
-            arr = list(im_gr_scaled.getdata())
-            arr_out = np.array(arr).reshape(self.new_size)
-            preprocessed_state.append(arr_out)
+        im = Image.fromarray(state)
+        im_gr = im.convert('L')
+        im_gr_scaled = im_gr.resize((self.new_size), Image.ANTIALIAS)
+        arr = list(im_gr_scaled.getdata())
+        arr_out = np.array(arr).reshape(self.new_size)
 
-        return preprocessed_state
-
+        return arr_out
 
     def process_state_for_network(self, state):
         """Scale, convert to greyscale and store as float32.
@@ -109,17 +105,14 @@ class AtariPreprocessor(Preprocessor):
         Basically same as process state for memory, but this time
         outputs float32 images.
         """
-        preprocessed_state = []
 
-        for frame in state:
-            im = Image.fromarray(frame)
-            im_gr = im.convert('L')
-            im_gr_scaled = im_gr.resize(self.new_size, Image.ANTIALIAS)
-            arr = list(im_gr_scaled.getdata())
-            arr_out = np.array(arr).reshape(self.new_size).astype('float32')
-            preprocessed_state.append(arr_out)
+        im = Image.fromarray(state)
+        im_gr = im.convert('L')
+        im_gr_scaled = im_gr.resize(self.new_size, Image.ANTIALIAS)
+        arr = list(im_gr_scaled.getdata())
+        arr_out = np.array(arr).reshape(self.new_size).astype('float32')
 
-        return preprocessed_state
+        return arr_out
 
     def process_batch(self, samples):
         """The batches from replay memory will be uint8, convert to float32.
@@ -153,10 +146,15 @@ class PreprocessorSequence(Preprocessor):
     def __init__(self, preprocessors):
         self.preprocessors = preprocessors
 
-    def preprocess_state(self, state):
+    def preprocess_state(self, state, mem):
 
         new_state = state
-        for pp in self.preprocessors:
-            new_state = pp.process_state_for_network(new_state)
+        if mem:
+            for pp in self.preprocessors:
+                new_state = pp.process_state_for_memory(new_state)
+        else:
+            for pp in self.preprocessors:
+                new_state = pp.process_state_for_network(new_state)
+
         return new_state
 
