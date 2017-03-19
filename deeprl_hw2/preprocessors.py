@@ -97,7 +97,7 @@ class AtariPreprocessor(Preprocessor):
             im_gr = im.convert('L')
             im_gr_scaled = im_gr.resize((self.new_size), Image.ANTIALIAS)
             arr = list(im_gr_scaled.getdata())
-            arr_out = numpy.array(arr).reshape(self.new_size)
+            arr_out = np.array(arr).reshape(self.new_size)
             preprocessed_state.append(arr_out)
 
         return preprocessed_state
@@ -116,7 +116,7 @@ class AtariPreprocessor(Preprocessor):
             im_gr = im.convert('L')
             im_gr_scaled = im_gr.resize(self.new_size, Image.ANTIALIAS)
             arr = list(im_gr_scaled.getdata())
-            arr_out = numpy.array(arr).reshape(self.new_size).astype('float32')
+            arr_out = np.array(arr).reshape(self.new_size).astype('float32')
             preprocessed_state.append(arr_out)
 
         return preprocessed_state
@@ -153,7 +153,7 @@ class PreprocessorSequence(Preprocessor):
     def __init__(self, preprocessors):
         self.preprocessors = preprocessors
 
-    def preprocess_state(state):
+    def preprocess_state(self, state):
 
         new_state = state
         for pp in self.preprocessors:

@@ -202,7 +202,7 @@ class ReplayMemory:
     def __init__(self, max_size, window_length):
         """Setup memory.
 
-        You should specify the maximum size o the memory. Once the
+        You should specify the maximum size of the memory. Once the
         memory fills up oldest values should be removed. You can try
         the collections.deque class as the underlying storage, but
         your sample method will be very slow.
@@ -212,7 +212,7 @@ class ReplayMemory:
         """
         self.max_size = max_size
         self.window_length = window_length
-        self.memory = []
+        self.memory = [None]*self.max_size
         self.cur = 0
 
     def append(self, sample):

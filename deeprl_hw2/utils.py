@@ -1,5 +1,5 @@
 """Common functions you may find useful in your implementation."""
-
+from keras.models import Model, Sequential
 import semver
 import tensorflow as tf
 import pickle
@@ -91,8 +91,8 @@ def get_hard_target_model_updates(target, source):
       List of tensor update ops.
     """
     config_src = source.get_config()
-    weights_src = model.get_weights()
-    target = Model.from_config(config_src)
+    weights_src = source.get_weights()
+    target = Sequential.from_config(config_src)
     target.set_weights(weights_src)
     return target
 

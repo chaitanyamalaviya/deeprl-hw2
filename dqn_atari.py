@@ -16,7 +16,8 @@ import gym
 import deeprl_hw2 as tfrl
 from deeprl_hw2.dqn import DQNAgent
 from deeprl_hw2.objectives import mean_huber_loss
-from deeprl_hw2.core import Preprocessor
+from deeprl_hw2.core import Preprocessor, ReplayMemory
+from deeprl_hw2.preprocessors import PreprocessorSequence, AtariPreprocessor
 
 
 def create_model(window, input_shape, num_actions,
@@ -83,7 +84,8 @@ def get_output_folder(parent_dir, env_name):
     parent_dir/run_dir
       Path to this run's save directory.
     """
-    os.makedirs(parent_dir, exist_ok=True)
+    if not os.path.exists(parent_dir):
+        os.makedirs(parent_dir)
     experiment_id = 0
     for folder_name in os.listdir(parent_dir):
         if not os.path.isdir(os.path.join(parent_dir, folder_name)):
@@ -115,6 +117,9 @@ def main():  # noqa: D103
     parser.add_argument('--learning_rate', default=0.0001, type=float, help='Learning rate for training')
     parser.add_argument('--discount', default=0.99, type=float, help='Discounting factor')
     parser.add_argument('--replay_mem_size', default=1000000, type=int, help='Maximum size of replay memory')
+    parser.add_argument('--train_freq', default=3, type=int, help='Frequency of updating Q-network')
+    parser.add_argument('--target_update_freq', default=10000, type=int, help='Frequency of updating target network')
+    
     args = parser.parse_args()
     #args.input_shape = tuple(args.input_shape)
 
@@ -137,15 +142,14 @@ def main():  # noqa: D103
     replay_mem = ReplayMemory(args.replay_mem_size, args.frame_count)
 
     # Create agent
-    preprocessor_seq = PreProcessor.PreProcessorSequence(PreProcessor.AtariProcessor(preprocessed_input_shape))
-    policy = Policy()
+    preprocessor_seq = PreprocessorSequence([AtariPreprocessor(preprocessed_input_shape)])
+
     dqn = DQNAgent (model, preprocessor_seq, replay_mem, 
-                   policy, args.discount, 10000, args.frame_count,
-                   args.mb_size)
+                   args.discount, args.target_update_freq, args.replay_mem_size,
+                   args.train_freq, args.mb_size, args.eps)
 
     dqn.compile()
     dqn.fit(env, args.iters, args.max_episode_len)
-
 
     # here is where you should start up a session,
     # create your DQN agent, create your model, etc.

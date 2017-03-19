@@ -5,8 +5,6 @@ implementations and some unimplemented classes that should be useful
 in your code.
 """
 import numpy as np
-import attr
-
 
 class Policy:
     """Base class representing an MDP policy.
@@ -133,15 +131,14 @@ class LinearDecayGreedyEpsilonPolicy(Policy):
 
     """
 
-    def __init__(self, policy, attr_name, start_value, end_value,
-                 num_steps):  # noqa: D102
-        self.policy = policy
-        self.attr_name = attr_name
+    def __init__(self, start_value, end_value, num_steps):  # noqa: D102
+
         self.start_value = start_value
         self.end_value = end_value
         self.num_steps = num_steps
+        self.epsilons = np.linspace(self.start_value, self.end_value, self.num_steps)
 
-    def select_action(self, **kwargs):
+    def select_action(self, q_values, is_training, steps):
         """Decay parameter and select action.
 
         Parameters
@@ -150,16 +147,25 @@ class LinearDecayGreedyEpsilonPolicy(Policy):
           The Q-values for each action.
         is_training: bool, optional
           If true then parameter will be decayed. Defaults to true.
+        steps: int
+          Number of steps passed during training
 
         Returns
         -------
         Any:
           Selected action.
         """
+
         if is_training:
-            
+            epsilon = self.epsilons[min(steps, num_steps-1)]
         else:
-            return self.end_value
+            epsilon = self.end_value
+
+        if np.random.random() > self.epsilon:
+            return np.argmax(q_values)
+        else:
+            return np.random.randint(len(q_values))
+
 
 
     def reset(self):
