@@ -124,7 +124,7 @@ def main():  # noqa: D103
     parser.add_argument('--seed', default=0, type=int, help='Random seed')
     parser.add_argument('--iters', default=5000000, type=int, help='Number of interactions with environment')
     parser.add_argument('--mb_size', default=32, type=int, help='Minibatch size')
-    parser.add_argument('--max_episode_len', default=200, type=int, help='Maximum length of episode')
+    parser.add_argument('--max_episode_len', default=2000, type=int, help='Maximum length of episode')
     parser.add_argument('--frame_count', default=4, type=int, help='Number of frames to feed to Q-network')
     parser.add_argument('--eps', default=0.05, type=float, help='Epsilon value for epsilon-greedy exploration')
     parser.add_argument('--learning_rate', default=0.0001, type=float, help='Learning rate for training')
@@ -160,7 +160,7 @@ def main():  # noqa: D103
     preprocessor_seq = PreprocessorSequence([AtariPreprocessor(preprocessed_input_shape)])
 
     dqn = DQNAgent (model, preprocessor_seq, replay_mem, 
-                   args.discount, args.target_update_freq, args.mb_size*3,
+                   args.discount, args.target_update_freq, args.mb_size*10,
                    args.train_freq, args.mb_size, args.eps, args.output)
 
     dqn.compile()

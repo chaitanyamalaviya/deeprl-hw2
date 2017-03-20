@@ -157,7 +157,6 @@ class LinearDecayGreedyEpsilonPolicy(Policy):
         """
 
         if is_training:
-            print(min(steps, self.num_steps-1))
             epsilon = self.epsilons[min(steps, self.num_steps-1)]
         else:
             epsilon = self.end_value

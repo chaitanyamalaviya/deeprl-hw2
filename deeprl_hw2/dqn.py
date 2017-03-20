@@ -117,7 +117,7 @@ class DQNAgent:
         actions = self.q_network.predict_on_batch(state) # state is actually a batch of states
         return actions
 
-    def select_action(self, q_values=None, steps=None):
+    def select_action(self, q_values=None, steps=None, decay=False):
         """Select the action based on the current state.
 
         You will probably want to vary your behavior here based on
@@ -141,8 +141,10 @@ class DQNAgent:
 
         if self.is_training and self.sampling: # UniformRandomPolicy
           chosen_action = self.policy.select_action()
-        elif self.is_training: # LinearDecayGreedyEpsilonPolicy
+        elif self.is_training and decay: # LinearDecayGreedyEpsilonPolicy
           chosen_action = self.policy.select_action(q_values, steps, self.is_training)
+        elif self.is_training:
+          chosen_action = self.policy.select_action(q_values)
         else: # Greedy Policy
           chosen_action = policy.select_action()
 
@@ -207,6 +209,7 @@ class DQNAgent:
             next_state, reward, is_terminal, _ = env.step(action)
             next_state = self.preprocessor.preprocess_state(next_state, mem=True)
             next_state = np.append(state[:,:,1:], np.expand_dims(next_state, 2), axis=2)
+            reward = self.preprocessor.process_reward(reward)
             self.memory.append(Sample(state, action, reward, next_state, is_terminal))
             if is_terminal:
                 state = env.reset()
@@ -224,8 +227,8 @@ class DQNAgent:
         self.sampling = False
 
         for i in range(num_iterations):
-          # chosen_policy = policy.GreedyEpsilonPolicy(self.epsilon)
-          self.policy = policy.LinearDecayGreedyEpsilonPolicy(1, 0.1, 1000000)
+          self.policy = policy.GreedyEpsilonPolicy(self.epsilon)
+          # self.policy = policy.LinearDecayGreedyEpsilonPolicy(1, 0.1, 1000000)
           state = env.reset()
           preprocessed_state = self.preprocessor.preprocess_state(state, mem=True)
           state = np.stack([preprocessed_state] * 4, axis=2)
@@ -244,12 +247,15 @@ class DQNAgent:
 
               ## Get next state
               q_values = self.q_network.predict(state)
-              chosen_action = self.select_action(q_values, tot_updates)
+
+              chosen_action = self.select_action(q_values) 
+              # chosen_action = self.select_action(q_values, tot_updates, True)
+
               next_state, reward, is_terminal, info = env.step(chosen_action)
               next_state = self.preprocessor.preprocess_state(next_state, mem=True)
               state = np.squeeze(state, axis=0)
               next_state = np.append(state[:,:,1:], np.expand_dims(next_state, 2), axis=2)
-
+              reward = self.preprocessor.preprocess_reward(reward)
               ## Append current sample to replay memory
               self.memory.append(Sample(state, action, reward, next_state, is_terminal))
               
@@ -283,7 +289,7 @@ class DQNAgent:
               ## Update parameters
               loss = self.update_network(states_batch, targets_batch_one_hot)
               cum_loss += loss
-              tot_reward = np.sum(rewards_batch)
+              tot_reward = reward
               cum_reward += tot_reward
 
               if is_terminal:
@@ -292,12 +298,12 @@ class DQNAgent:
               state = next_state
               state = np.expand_dims(state, axis=0)
               tot_updates += 1
-              print("Loss:", loss, "Reward:", tot_reward)
+              print("Loss:", loss/self.batch_size, "Reward:", tot_reward)
 
           episode_lengths.append(tot_updates)
-          print("Average reward this episode: ", cum_reward/tot_updates,
+          print("Average reward this episode: ", cum_reward/(tot_updates*self.batch_size),
                 "Episode Length:", tot_updates)
-
+          self.q_network.save(self.output_folder+'/model_file.h5')
 
     def evaluate(self, env, num_episodes, max_episode_length):
         """Test your agent with a provided environment.
