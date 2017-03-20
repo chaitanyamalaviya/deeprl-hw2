@@ -73,7 +73,7 @@ class GreedyPolicy(Policy):
     This is a pure exploitation policy.
     """
 
-    def select_action(self, q_values, **kwargs):  # noqa: D102
+    def select_action(self, q_values):  # noqa: D102
         return np.argmax(q_values)
 
 
@@ -93,7 +93,7 @@ class GreedyEpsilonPolicy(Policy):
         assert epsilon>=0 and epsilon<=1
         self.epsilon = epsilon
 
-    def select_action(self, q_values, **kwargs):
+    def select_action(self, q_values):
         """Run Greedy-Epsilon for the given Q-values.
 
         Parameters
@@ -138,17 +138,17 @@ class LinearDecayGreedyEpsilonPolicy(Policy):
         self.num_steps = num_steps
         self.epsilons = np.linspace(self.start_value, self.end_value, self.num_steps)
 
-    def select_action(self, q_values, is_training, steps):
+    def select_action(self, q_values, steps, is_training=True):
         """Decay parameter and select action.
 
         Parameters
         ----------
         q_values: np.array
           The Q-values for each action.
-        is_training: bool, optional
-          If true then parameter will be decayed. Defaults to true.
         steps: int
           Number of steps passed during training
+        is_training: bool, optional
+          If true then parameter will be decayed. Defaults to true.
 
         Returns
         -------
@@ -157,11 +157,12 @@ class LinearDecayGreedyEpsilonPolicy(Policy):
         """
 
         if is_training:
-            epsilon = self.epsilons[min(steps, num_steps-1)]
+            print(min(steps, self.num_steps-1))
+            epsilon = self.epsilons[min(steps, self.num_steps-1)]
         else:
             epsilon = self.end_value
 
-        if np.random.random() > self.epsilon:
+        if np.random.random() > epsilon:
             return np.argmax(q_values)
         else:
             return np.random.randint(len(q_values))

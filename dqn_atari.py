@@ -7,7 +7,7 @@ import random
 import numpy as np
 import tensorflow as tf
 from keras.layers import (Activation, Conv2D, Dense, Flatten, Input,
-                          Permute, InputLayer)
+                          Permute, InputLayer, Lambda)
 from keras.models import Model, Sequential
 from keras.optimizers import Adam
 from keras import backend as K
@@ -50,6 +50,7 @@ def create_model(window, input_shape, num_actions,
       The Q-model.
     """
     print("Creating model...")
+
     #img = tf.placeholder(tf.float32, shape=input_shape + (window,))
     model = Sequential()
     #model.add(InputLayer(input_tensor=custom_input_tensor, input_shape=input_shape + (window,)))
@@ -64,6 +65,9 @@ def create_model(window, input_shape, num_actions,
         model.add(Dense(256))
         model.add(Activation('relu'))
         model.add(Dense(num_actions))
+        # model.add(Lambda(K.one_hot,
+               # arguments={'nb_classes': num_actions},
+               # output_shape=(num_actions)))
 
     elif model_type=='linear':
 
@@ -157,7 +161,7 @@ def main():  # noqa: D103
 
     dqn = DQNAgent (model, preprocessor_seq, replay_mem, 
                    args.discount, args.target_update_freq, args.mb_size*3,
-                   args.train_freq, args.mb_size, args.eps)
+                   args.train_freq, args.mb_size, args.eps, args.output)
 
     dqn.compile()
     dqn.fit(env, args.iters, args.max_episode_len)

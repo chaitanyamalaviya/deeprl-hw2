@@ -114,14 +114,14 @@ class AtariPreprocessor(Preprocessor):
 
         return arr_out
 
-    def process_batch(self, samples):
+    def process_batch(self, states_batch):
         """The batches from replay memory will be uint8, convert to float32.
 
         Same as process_state_for_network but works on a batch of
         samples from the replay memory. Meaning you need to convert
         both state and next state values.
         """
-        pass
+        return states_batch.astype('float32')
 
     def process_reward(self, reward):
         """Clip reward between -1 and 1."""
@@ -146,15 +146,18 @@ class PreprocessorSequence(Preprocessor):
     def __init__(self, preprocessors):
         self.preprocessors = preprocessors
 
-    def preprocess_state(self, state, mem):
+    def preprocess_state(self, state, mem, batch=False):
 
         new_state = state
         if mem:
             for pp in self.preprocessors:
                 new_state = pp.process_state_for_memory(new_state)
-        else:
+        elif not batch:
             for pp in self.preprocessors:
                 new_state = pp.process_state_for_network(new_state)
+        else:
+            for pp in self.preprocessors:
+                new_state = pp.process_batch(new_state)
 
         return new_state
 
