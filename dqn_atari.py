@@ -132,6 +132,8 @@ def main():  # noqa: D103
     parser.add_argument('--replay_mem_size', default=1000000, type=int, help='Maximum size of replay memory')
     parser.add_argument('--train_freq', default=3, type=int, help='Frequency of updating Q-network')
     parser.add_argument('--target_update_freq', default=10000, type=int, help='Frequency of updating target network')
+    parser.add_argument('--eval', action='store_true', help='Indicator to evaluate model on given environment')
+    parser.add_argument('--filename', type=str, help='Filename for saved model to load during evaluation')
     
     args = parser.parse_args()
     #args.input_shape = tuple(args.input_shape)
@@ -165,6 +167,9 @@ def main():  # noqa: D103
 
     dqn.compile()
     dqn.fit(env, args.iters, args.max_episode_len)
+
+    if args.eval:
+        dqn.evaluate(env, args.iters, args.max_episode_length, args.filename)
 
     # here is where you should start up a session,
     # create your DQN agent, create your model, etc.

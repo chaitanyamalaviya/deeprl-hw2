@@ -98,7 +98,7 @@ class DQNAgent:
 
         # self.q_network.compile(loss=objectives.mean_huber_loss,
         #                        optimizer=adam,
-        #                        metrics=['accuracy'])
+        #                        metrics=[])
         self.q_network.compile(loss='mean_squared_error',
                                optimizer=adam,
                                metrics=[])
@@ -221,12 +221,14 @@ class DQNAgent:
 
         ## Logging stats and Recording video
         env = wrappers.Monitor(env, self.output_folder)
-        tbCallBack = TensorBoard(log_dir=self.output_folder+'./Graph', histogram_freq=0, write_graph=True, write_images=True)
+        tbCallBack = TensorBoard(log_dir=self.output_folder, histogram_freq=0, write_graph=True, write_images=True)
 
         episode_lengths = []
+        episode_counter = 0
+        sum_tot_iters = 0
         self.sampling = False
 
-        for i in range(num_iterations):
+        while sum_tot_iters < num_iterations:
           self.policy = policy.GreedyEpsilonPolicy(self.epsilon)
           # self.policy = policy.LinearDecayGreedyEpsilonPolicy(1, 0.1, 1000000)
           state = env.reset()
@@ -272,16 +274,16 @@ class DQNAgent:
 
               ## Calculate q-learning targets
 
-              q_values_next = self.q_network.predict_on_batch(next_states_batch)
+              q_values = self.q_network.predict_on_batch(next_states_batch)
 
-              ## For double q-learning
-              #best_actions = np.argmax(q_values_next, axis=1)
+              ## For double deep q-networks
+              # max_actions = np.argmax(q_values, axis=1)
 
-              q_values_next_target = self.target_q_network.predict(next_states_batch)
-              best_actions = np.argmax(q_values_next_target, axis=1)
+              target_q_values = self.target_q_network.predict(next_states_batch)
+              max_actions = np.argmax(target_q_values, axis=1)
 
               targets_batch = rewards_batch + np.invert(is_terminal_batch).astype(np.float32) * \
-              self.gamma * q_values_next_target[np.arange(self.batch_size), best_actions]
+              self.gamma * target_q_values[np.arange(self.batch_size), max_actions]
 
               targets_batch_one_hot = np.zeros((self.batch_size, env.action_space.n))
               targets_batch_one_hot[np.arange(self.batch_size), actions_batch] = targets_batch
@@ -292,20 +294,30 @@ class DQNAgent:
               tot_reward = reward
               cum_reward += tot_reward
 
-              if is_terminal:
-                break
-
               state = next_state
               state = np.expand_dims(state, axis=0)
               tot_updates += 1
               print("Loss:", loss/self.batch_size, "Reward:", tot_reward)
 
+              if is_terminal:
+                break
+          episode_counter += 1
           episode_lengths.append(tot_updates)
-          print("Average reward this episode: ", cum_reward/(tot_updates*self.batch_size),
+          print("Average reward per frame this episode: ", cum_reward/(tot_updates*self.batch_size),
                 "Episode Length:", tot_updates)
+          sum_tot_iters += tot_updates
+
+          ## Save Model
           self.q_network.save(self.output_folder+'/model_file.h5')
 
-    def evaluate(self, env, num_episodes, max_episode_length):
+          ## Evaluate Model every 20 episodes
+          if (episode_counter+1) % 20 == 0:
+            self.evaluate(env, num_iterations, max_episode_length, self.output_folder+'/model_file.h5')
+
+        print("Average Episode Length:", sum(episode_lengths)/len(episode_lengths))
+
+
+    def evaluate(self, env, num_iterations, max_episode_length, filename):
         """Test your agent with a provided environment.
         
         You shouldn't update your network parameters here. Also if you
@@ -321,5 +333,59 @@ class DQNAgent:
         # Run policy
         # Collect stats - reward, avg episode length
         # Render env
-        #score = model.evaluate(x_test, y_test, batch_size=16)
+        episode_lengths = []
+        sum_tot_iters = 0
+        self.sampling = False
+        self.q_network.load(filename)
+
+        while sum_tot_iters < num_iterations:
+          self.policy = policy.GreedyPolicy()
+
+          state = env.reset()
+          preprocessed_state = self.preprocessor.preprocess_state(state, mem=True)
+          state = np.stack([preprocessed_state] * 4, axis=2)
+          state = np.expand_dims(state, axis=0)
+          cum_reward = 0
+          cum_loss = 0
+          tot_updates = 0
+
+          for t in range(max_episode_length):
+
+              if t%6==0: env.render()
+
+              ## Update target q-network at a frequency
+              if tot_updates+1 % self.target_update_freq == 0:
+                self.target_q_network = utils.get_hard_target_model_updates(self.target_q_network, self.q_network)
+
+              ## Get next state
+              q_values = self.q_network.predict(state)
+
+              chosen_action = self.select_action(q_values) 
+              # chosen_action = self.select_action(q_values, tot_updates, True)
+
+              next_state, reward, is_terminal, info = env.step(chosen_action)
+              next_state = self.preprocessor.preprocess_state(next_state, mem=True)
+              state = np.squeeze(state, axis=0)
+              next_state = np.append(state[:,:,1:], np.expand_dims(next_state, 2), axis=2)
+              reward = self.preprocessor.preprocess_reward(reward)
+              ## Append current sample to replay memory
+              self.memory.append(Sample(state, action, reward, next_state, is_terminal))
+
+              tot_reward = reward
+              cum_reward += tot_reward
+
+              state = next_state
+              state = np.expand_dims(state, axis=0)
+              tot_updates += 1
+              print("Reward:", tot_reward)
+
+              if is_terminal:
+                break
+
+          episode_lengths.append(tot_updates)
+          print("Average reward this episode: ", cum_reward/(tot_updates*self.batch_size),
+                "Episode Length:", tot_updates)
+          sum_tot_iters += tot_updates
+        print("Average Episode Length:", sum(episode_lengths)/len(episode_lengths))
+
 
