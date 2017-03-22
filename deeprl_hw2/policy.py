@@ -111,7 +111,7 @@ class GreedyEpsilonPolicy(Policy):
         if np.random.random() > self.epsilon:
             return np.argmax(q_values)
         else:
-            return np.random.randint(len(q_values))
+            return np.random.randint(len(q_values[0]))
 
 
 class LinearDecayGreedyEpsilonPolicy(Policy):
@@ -164,7 +164,7 @@ class LinearDecayGreedyEpsilonPolicy(Policy):
         if np.random.random() > epsilon:
             return np.argmax(q_values)
         else:
-            return np.random.randint(len(q_values))
+            return np.random.randint(len(q_values[0]))
 
 
 

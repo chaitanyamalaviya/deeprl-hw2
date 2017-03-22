@@ -6,7 +6,7 @@ from keras.callbacks import TensorBoard
 from deeprl_hw2.core import Preprocessor, ReplayMemory, Sample
 from collections import namedtuple
 from gym import wrappers
-import utils, objectives, policy
+from . import utils, objectives, policy
 import numpy as np
 
 class DQNAgent:
@@ -93,15 +93,18 @@ class DQNAgent:
         optimizer.
         """
 
-        self.target_q_network = utils.get_hard_target_model_updates(self.target_q_network, self.q_network)
+        self.target_q_network = \
+            utils.get_hard_target_model_updates(self.target_q_network, self.q_network)
         adam = Adam(lr=1e-6)
 
-        # self.q_network.compile(loss=objectives.mean_huber_loss,
-        #                        optimizer=adam,
-        #                        metrics=[])
-        self.q_network.compile(loss='mean_squared_error',
+        self.q_network.compile(loss=objectives.mean_huber_loss,
                                optimizer=adam,
                                metrics=[])
+
+        # Uncomment to use MSE loss
+        #self.q_network.compile(loss='mean_squared_error',
+        #                       optimizer=adam,
+        #                       metrics=[])
 
         print("Model compiled.")
 
@@ -114,7 +117,8 @@ class DQNAgent:
         ------
         Q-values for the state(s)
         """
-        actions = self.q_network.predict_on_batch(state) # state is actually a batch of states
+        # state is actually a batch of states
+        actions = self.q_network.predict_on_batch(state)
         return actions
 
     def select_action(self, q_values=None, steps=None, decay=False):
@@ -205,7 +209,6 @@ class DQNAgent:
 
         for i in range(self.num_burn_in):
             action = self.select_action()
-            # action = chosen_policy.select_action()
             next_state, reward, is_terminal, _ = env.step(action)
             next_state = self.preprocessor.preprocess_state(next_state, mem=True)
             next_state = np.append(state[:,:,1:], np.expand_dims(next_state, 2), axis=2)
@@ -229,8 +232,8 @@ class DQNAgent:
         self.sampling = False
 
         while sum_tot_iters < num_iterations:
-          self.policy = policy.GreedyEpsilonPolicy(self.epsilon)
-          # self.policy = policy.LinearDecayGreedyEpsilonPolicy(1, 0.1, 1000000)
+          #self.policy = policy.GreedyEpsilonPolicy(self.epsilon)
+          self.policy = policy.LinearDecayGreedyEpsilonPolicy(1, 0.1, 1000000)
           state = env.reset()
           preprocessed_state = self.preprocessor.preprocess_state(state, mem=True)
           state = np.stack([preprocessed_state] * 4, axis=2)
@@ -241,36 +244,43 @@ class DQNAgent:
 
           for t in range(max_episode_length):
 
-              # if t%20==0: env.render()
-
               ## Update target q-network at a frequency
               if tot_updates+1 % self.target_update_freq == 0:
-                self.target_q_network = utils.get_hard_target_model_updates(self.target_q_network, self.q_network)
+                self.target_q_network = \
+                    utils.get_hard_target_model_updates(self.target_q_network,
+                                                        self.q_network)
 
               ## Get next state
               q_values = self.q_network.predict(state)
 
-              chosen_action = self.select_action(q_values) 
-              # chosen_action = self.select_action(q_values, tot_updates, True)
+              # chosen_action = self.select_action(q_values)
+              chosen_action = \
+                self.select_action(q_values, sum_tot_iters+tot_updates, True)
 
               next_state, reward, is_terminal, info = env.step(chosen_action)
               next_state = self.preprocessor.preprocess_state(next_state, mem=True)
               state = np.squeeze(state, axis=0)
-              next_state = np.append(state[:,:,1:], np.expand_dims(next_state, 2), axis=2)
+              next_state = \
+                np.append(state[:,:,1:], np.expand_dims(next_state, 2), axis=2)
               reward = self.preprocessor.preprocess_reward(reward)
               ## Append current sample to replay memory
-              self.memory.append(Sample(state, chosen_action, reward, next_state, is_terminal))
+              self.memory.append(
+                Sample(state, chosen_action, reward, next_state, is_terminal))
               
               ## Sample minibatch from replay memory 
               samples = self.memory.sample(self.batch_size)
               sample_props  = [s.get_props() for s in samples]
-              states_batch, actions_batch, rewards_batch, next_states_batch, is_terminal_batch = map(np.array, zip(*sample_props))
-              states_batch = self.preprocessor.preprocess_state(states_batch, mem=False, batch=True)
-              next_states_batch = self.preprocessor.preprocess_state(next_states_batch, mem=False, batch=True)
 
-              #actions_hot = np.zeros((self.batch_size, env.action_space.n))
-              #actions_hot[np.arange(self.batch_size), actions_batch] = 1
+              states_batch, actions_batch, \
+              rewards_batch, next_states_batch, is_terminal_batch = \
+                map(np.array, zip(*sample_props))
 
+              states_batch = \
+                self.preprocessor.preprocess_state(states_batch, mem=False, batch=True)
+              next_states_batch = \
+                self.preprocessor.preprocess_state(next_states_batch,
+                                                   mem=False,
+                                                   batch=True)
 
               ## Calculate q-learning targets
 
@@ -282,11 +292,13 @@ class DQNAgent:
               target_q_values = self.target_q_network.predict(next_states_batch)
               max_actions = np.argmax(target_q_values, axis=1)
 
-              targets_batch = rewards_batch + np.invert(is_terminal_batch).astype(np.float32) * \
-              self.gamma * target_q_values[np.arange(self.batch_size), max_actions]
+              targets_batch = \
+                rewards_batch + np.invert(is_terminal_batch).astype(np.float32) * \
+                self.gamma * target_q_values[np.arange(self.batch_size), max_actions]
 
               targets_batch_one_hot = np.zeros((self.batch_size, env.action_space.n))
-              targets_batch_one_hot[np.arange(self.batch_size), actions_batch] = targets_batch
+              targets_batch_one_hot[np.arange(self.batch_size), actions_batch] = \
+                targets_batch
 
               ## Update parameters
               loss = self.update_network(states_batch, targets_batch_one_hot)
@@ -297,14 +309,20 @@ class DQNAgent:
               state = next_state
               state = np.expand_dims(state, axis=0)
               tot_updates += 1
-              print("Loss:", loss/self.batch_size, "Reward:", tot_reward)
+              print("\r[%i] Loss: %.5f" %
+                      (sum_tot_iters+tot_updates, loss/self.batch_size),
+                    "Reward:", cum_reward, end="")
 
               if is_terminal:
                 break
+
           episode_counter += 1
           episode_lengths.append(tot_updates)
-          print("Average reward per frame this episode: ", cum_reward/(tot_updates*self.batch_size),
-                "Episode Length:", tot_updates, "Number of Episodes: ", episode_counter)
+          print("\nAverage reward per frame this episode:",
+                 cum_reward/(tot_updates*self.batch_size),
+                "\nEpisode Length:", tot_updates,
+                "\nNumber of Episodes:", episode_counter, "\n")
+
           sum_tot_iters += tot_updates
 
           ## Save Model
@@ -312,9 +330,10 @@ class DQNAgent:
 
           ## Evaluate Model every 20 episodes
           if (episode_counter+1) % 20 == 0:
-            self.evaluate(env, num_iterations, max_episode_length, self.output_folder+'/model_file.h5')
+            self.evaluate(env, num_iterations, max_episode_length,
+                          self.output_folder+'/model_file.h5')
 
-        print("Average Episode Length:", sum(episode_lengths)/len(episode_lengths))
+        print("\nAverage Episode Length: ", sum(episode_lengths)/len(episode_lengths))
 
 
     def evaluate(self, env, num_iterations, max_episode_length, filename):
@@ -384,7 +403,8 @@ class DQNAgent:
 
           episode_lengths.append(tot_updates)
           print("Average reward this episode: ", cum_reward/(tot_updates*self.batch_size),
-                "Episode Length:", tot_updates, "Number of Episodes: ", episode_counter)
+                "Episode Length:", tot_updates, "Number of Episodes: ",
+                len(episode_lengths))
           sum_tot_iters += tot_updates
         print("Average Episode Length:", sum(episode_lengths)/len(episode_lengths))
 

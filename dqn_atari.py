@@ -76,6 +76,11 @@ def create_model(window, input_shape, num_actions,
         model.add(Activation('relu'))
         model.add(Dense(num_actions))
 
+    else:
+
+        print("Model type not implemented")
+        exit()
+
     return model
 
 def get_output_folder(parent_dir, env_name):
@@ -134,6 +139,8 @@ def main():  # noqa: D103
     parser.add_argument('--target_update_freq', default=10000, type=int, help='Frequency of updating target network')
     parser.add_argument('--eval', action='store_true', help='Indicator to evaluate model on given environment')
     parser.add_argument('--filename', type=str, help='Filename for saved model to load during evaluation')
+    parser.add_argument('--model_type', type=str, help='Type of model to use: linear, deep, double, dueling')
+    parser.add_argument('--initial_replay_size', default=50000, type=int, help='Initial size of the replay memory upto which a uniform random policy should be used')
     
     args = parser.parse_args()
     #args.input_shape = tuple(args.input_shape)
@@ -147,9 +154,7 @@ def main():  # noqa: D103
 
     # Create model
     preprocessed_input_shape = (84,84)
-    # Model type should probably be given by a config argument,to support linear/deep networks
-    model_type = 'linear'
-    model = create_model(args.frame_count, preprocessed_input_shape, env.action_space.n, args.env+"-test", model_type)
+    model = create_model(args.frame_count, preprocessed_input_shape, env.action_space.n, args.env+"-test", args.model_type)
 
     # Create session
     sess = tf.Session()
@@ -162,7 +167,7 @@ def main():  # noqa: D103
     preprocessor_seq = PreprocessorSequence([AtariPreprocessor(preprocessed_input_shape)])
 
     dqn = DQNAgent (model, preprocessor_seq, replay_mem, 
-                   args.discount, args.target_update_freq, 10000,
+                   args.discount, args.target_update_freq, args.initial_replay_size,
                    args.train_freq, args.mb_size, args.eps, args.output)
 
     dqn.compile()
