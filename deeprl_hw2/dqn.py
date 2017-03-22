@@ -355,10 +355,9 @@ class DQNAgent:
         episode_lengths = []
         sum_tot_iters = 0
         self.sampling = False
-        # self.q_network.load(filename)
 
-        while sum_tot_iters < num_iterations:
-          self.policy = policy.GreedyEpsilonPolicy(self.epsilon)
+        while len(episode_lengths) < 20:
+          self.policy = policy.GreedyPolicy()
 
           state = env.reset()
           preprocessed_state = self.preprocessor.preprocess_state(state, mem=True)
@@ -372,40 +371,30 @@ class DQNAgent:
 
               if t%20==0: env.render()
 
-              ## Update target q-network at a frequency
-              if tot_updates+1 % self.target_update_freq == 0:
-                self.target_q_network = utils.get_hard_target_model_updates(self.target_q_network, self.q_network)
-
               ## Get next state
               q_values = self.q_network.predict(state)
 
-              chosen_action = self.select_action(q_values) 
-              # chosen_action = self.select_action(q_values, tot_updates, True)
+              chosen_action = self.select_action(q_values)
 
               next_state, reward, is_terminal, info = env.step(chosen_action)
               next_state = self.preprocessor.preprocess_state(next_state, mem=True)
               state = np.squeeze(state, axis=0)
-              next_state = np.append(state[:,:,1:], np.expand_dims(next_state, 2), axis=2)
-              reward = self.preprocessor.preprocess_reward(reward)
-              ## Append current sample to replay memory
-              self.memory.append(Sample(state, chosen_action, reward, next_state, is_terminal))
-
+              next_state = \
+                np.append(state[:,:,1:], np.expand_dims(next_state, 2), axis=2)
               tot_reward = reward
               cum_reward += tot_reward
 
               state = next_state
               state = np.expand_dims(state, axis=0)
               tot_updates += 1
-              print("Reward:", tot_reward)
 
               if is_terminal:
                 break
 
           episode_lengths.append(tot_updates)
-          print("Average reward this episode: ", cum_reward/(tot_updates*self.batch_size),
-                "Episode Length:", tot_updates, "Number of Episodes: ",
-                len(episode_lengths))
           sum_tot_iters += tot_updates
+
         print("Average Episode Length:", sum(episode_lengths)/len(episode_lengths))
+        print("Average total reward:", cum_reward/len(episode_lengths))
 
 
