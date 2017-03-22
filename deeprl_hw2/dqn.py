@@ -241,7 +241,7 @@ class DQNAgent:
 
           for t in range(max_episode_length):
 
-              if t%6==0: env.render()
+              # if t%20==0: env.render()
 
               ## Update target q-network at a frequency
               if tot_updates+1 % self.target_update_freq == 0:
@@ -259,7 +259,7 @@ class DQNAgent:
               next_state = np.append(state[:,:,1:], np.expand_dims(next_state, 2), axis=2)
               reward = self.preprocessor.preprocess_reward(reward)
               ## Append current sample to replay memory
-              self.memory.append(Sample(state, action, reward, next_state, is_terminal))
+              self.memory.append(Sample(state, chosen_action, reward, next_state, is_terminal))
               
               ## Sample minibatch from replay memory 
               samples = self.memory.sample(self.batch_size)
@@ -304,7 +304,7 @@ class DQNAgent:
           episode_counter += 1
           episode_lengths.append(tot_updates)
           print("Average reward per frame this episode: ", cum_reward/(tot_updates*self.batch_size),
-                "Episode Length:", tot_updates)
+                "Episode Length:", tot_updates, "Number of Episodes: ", episode_counter)
           sum_tot_iters += tot_updates
 
           ## Save Model
@@ -336,10 +336,10 @@ class DQNAgent:
         episode_lengths = []
         sum_tot_iters = 0
         self.sampling = False
-        self.q_network.load(filename)
+        # self.q_network.load(filename)
 
         while sum_tot_iters < num_iterations:
-          self.policy = policy.GreedyPolicy()
+          self.policy = policy.GreedyEpsilonPolicy(self.epsilon)
 
           state = env.reset()
           preprocessed_state = self.preprocessor.preprocess_state(state, mem=True)
@@ -351,7 +351,7 @@ class DQNAgent:
 
           for t in range(max_episode_length):
 
-              if t%6==0: env.render()
+              if t%20==0: env.render()
 
               ## Update target q-network at a frequency
               if tot_updates+1 % self.target_update_freq == 0:
@@ -369,7 +369,7 @@ class DQNAgent:
               next_state = np.append(state[:,:,1:], np.expand_dims(next_state, 2), axis=2)
               reward = self.preprocessor.preprocess_reward(reward)
               ## Append current sample to replay memory
-              self.memory.append(Sample(state, action, reward, next_state, is_terminal))
+              self.memory.append(Sample(state, chosen_action, reward, next_state, is_terminal))
 
               tot_reward = reward
               cum_reward += tot_reward
@@ -384,7 +384,7 @@ class DQNAgent:
 
           episode_lengths.append(tot_updates)
           print("Average reward this episode: ", cum_reward/(tot_updates*self.batch_size),
-                "Episode Length:", tot_updates)
+                "Episode Length:", tot_updates, "Number of Episodes: ", episode_counter)
           sum_tot_iters += tot_updates
         print("Average Episode Length:", sum(episode_lengths)/len(episode_lengths))
 

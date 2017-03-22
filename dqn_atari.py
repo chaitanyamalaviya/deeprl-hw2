@@ -162,7 +162,7 @@ def main():  # noqa: D103
     preprocessor_seq = PreprocessorSequence([AtariPreprocessor(preprocessed_input_shape)])
 
     dqn = DQNAgent (model, preprocessor_seq, replay_mem, 
-                   args.discount, args.target_update_freq, args.mb_size*10,
+                   args.discount, args.target_update_freq, 10000,
                    args.train_freq, args.mb_size, args.eps, args.output)
 
     dqn.compile()
