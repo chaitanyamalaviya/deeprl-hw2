@@ -8,6 +8,7 @@ from collections import namedtuple
 from gym import wrappers
 from . import utils, objectives, policy
 import numpy as np
+import os
 
 class DQNAgent:
     """Class implementing DQN.
@@ -74,6 +75,7 @@ class DQNAgent:
         self.is_training = True
         self.target_q_network = Sequential()
         self.policy = None
+        self.evaluating = False
 
     def compile(self):
         """Setup all of the TF graph variables/ops.
@@ -95,6 +97,8 @@ class DQNAgent:
 
         self.target_q_network = \
             utils.get_hard_target_model_updates(self.target_q_network, self.q_network)
+
+        # Uncomment to use Adam Optimizer
         adam = Adam(lr=1e-6)
 
         self.q_network.compile(loss=objectives.mean_huber_loss,
@@ -174,6 +178,8 @@ class DQNAgent:
         loss = self.q_network.train_on_batch(states_batch, targets_batch)
         return loss
 
+    def in_eval(self, episode_id):
+        return self.evaluating
 
     def fit(self, env, num_iterations, max_episode_length):
         """Fit your model to the provided environment.
@@ -201,6 +207,8 @@ class DQNAgent:
           resets. Can help exploration.
         """
 
+        os.mkdir(self.output_folder)
+
         print("Filling up replay memory..")
         self.policy = policy.UniformRandomPolicy(env.action_space.n)
         state = env.reset()
@@ -221,15 +229,19 @@ class DQNAgent:
             else:
                 state = next_state
 
-
         ## Logging stats and Recording video
-        env = wrappers.Monitor(env, self.output_folder)
+        env = wrappers.Monitor(env, self.output_folder, video_callable=self.in_eval)
         tbCallBack = TensorBoard(log_dir=self.output_folder, histogram_freq=0, write_graph=True, write_images=True)
 
         episode_lengths = []
         episode_counter = 0
         sum_tot_iters = 0
         self.sampling = False
+
+        # Flag to indicate that eval should be done at the end of the episode
+        should_eval = False
+        eval_steps = 10000
+        next_eval = eval_steps
 
         while sum_tot_iters < num_iterations:
           #self.policy = policy.GreedyEpsilonPolicy(self.epsilon)
@@ -245,10 +257,14 @@ class DQNAgent:
           for t in range(max_episode_length):
 
               ## Update target q-network at a frequency
-              if tot_updates+1 % self.target_update_freq == 0:
+              if (sum_tot_iters+tot_updates+1) % self.target_update_freq == 0:
                 self.target_q_network = \
                     utils.get_hard_target_model_updates(self.target_q_network,
                                                         self.q_network)
+
+              ## Evaluate Model every ~10,000 updates, nearest episode end
+              if (sum_tot_iters+tot_updates+1) % next_eval == 0:
+                  should_eval = True
 
               ## Get next state
               q_values = self.q_network.predict(state)
@@ -328,10 +344,12 @@ class DQNAgent:
           ## Save Model
           self.q_network.save(self.output_folder+'/model_file.h5')
 
-          ## Evaluate Model every 20 episodes
-          if (episode_counter+1) % 20 == 0:
-            self.evaluate(env, num_iterations, max_episode_length,
-                          self.output_folder+'/model_file.h5')
+          # If we have to evaluate, do so and set the next evaluation iteration
+          if should_eval:
+              self.evaluate(env, num_iterations, max_episode_length,
+                            self.output_folder+'/model_file.h5')
+              next_eval = sum_tot_iters + eval_steps
+              should_eval = False
 
         print("\nAverage Episode Length: ", sum(episode_lengths)/len(episode_lengths))
 
@@ -352,6 +370,9 @@ class DQNAgent:
         # Run policy
         # Collect stats - reward, avg episode length
         # Render env
+
+        self.evaluating = True
+
         episode_lengths = []
         sum_tot_iters = 0
         self.sampling = False
@@ -396,5 +417,7 @@ class DQNAgent:
 
         print("Average Episode Length:", sum(episode_lengths)/len(episode_lengths))
         print("Average total reward:", cum_reward/len(episode_lengths))
+
+        self.evaluating = False
 
 
