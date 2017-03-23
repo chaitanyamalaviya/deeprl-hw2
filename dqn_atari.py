@@ -141,6 +141,7 @@ def main():  # noqa: D103
     parser.add_argument('--filename', type=str, help='Filename for saved model to load during evaluation')
     parser.add_argument('--model_type', type=str, help='Type of model to use: linear, deep, double, dueling')
     parser.add_argument('--initial_replay_size', default=50000, type=int, help='Initial size of the replay memory upto which a uniform random policy should be used')
+    parser.add_argument('--evaluate_every', default=10000, type=int, help='Number of updates to run evaluation after')
     
     args = parser.parse_args()
     #args.input_shape = tuple(args.input_shape)
@@ -168,7 +169,8 @@ def main():  # noqa: D103
 
     dqn = DQNAgent (model, preprocessor_seq, replay_mem, 
                    args.discount, args.target_update_freq, args.initial_replay_size,
-                   args.train_freq, args.mb_size, args.eps, args.output)
+                   args.train_freq, args.mb_size, args.eps, args.output,
+                   args.evaluate_every)
 
     dqn.compile()
     dqn.fit(env, args.iters, args.max_episode_len)

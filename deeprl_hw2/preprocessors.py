@@ -95,7 +95,7 @@ class AtariPreprocessor(Preprocessor):
         im_gr = im.convert('L')
         im_gr_scaled = im_gr.resize((self.new_size), Image.ANTIALIAS)
         arr = list(im_gr_scaled.getdata())
-        arr_out = np.array(arr).reshape(self.new_size)
+        arr_out = np.array(arr).reshape(self.new_size).astype('uint8')
 
         return arr_out
 

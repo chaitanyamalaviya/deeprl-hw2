@@ -58,7 +58,8 @@ class DQNAgent:
                  train_freq,
                  batch_size,
                  epsilon,
-                 output_folder):
+                 output_folder,
+                 eval_every):
 
         self.q_network = q_network
         self.preprocessor = preprocessor
@@ -71,6 +72,7 @@ class DQNAgent:
 
         self.epsilon = epsilon
         self.output_folder = output_folder
+        self.eval_every = eval_every
         self.sampling = True
         self.is_training = True
         self.target_q_network = Sequential()
@@ -240,7 +242,7 @@ class DQNAgent:
 
         # Flag to indicate that eval should be done at the end of the episode
         should_eval = False
-        eval_steps = 10000
+        eval_steps = self.eval_every
         next_eval = eval_steps
 
         while sum_tot_iters < num_iterations:
@@ -373,11 +375,11 @@ class DQNAgent:
 
         self.evaluating = True
 
-        episode_lengths = []
-        sum_tot_iters = 0
+        episode_count = 0
+        total_episodes = 20
         self.sampling = False
 
-        while len(episode_lengths) < 20:
+        while episode_count < total_episodes:
           self.policy = policy.GreedyPolicy()
 
           state = env.reset()
@@ -385,8 +387,6 @@ class DQNAgent:
           state = np.stack([preprocessed_state] * 4, axis=2)
           state = np.expand_dims(state, axis=0)
           cum_reward = 0
-          cum_loss = 0
-          tot_updates = 0
 
           for t in range(max_episode_length):
 
@@ -394,7 +394,6 @@ class DQNAgent:
 
               ## Get next state
               q_values = self.q_network.predict(state)
-
               chosen_action = self.select_action(q_values)
 
               next_state, reward, is_terminal, info = env.step(chosen_action)
@@ -402,22 +401,16 @@ class DQNAgent:
               state = np.squeeze(state, axis=0)
               next_state = \
                 np.append(state[:,:,1:], np.expand_dims(next_state, 2), axis=2)
-              tot_reward = reward
-              cum_reward += tot_reward
+              cum_reward += reward
 
               state = next_state
               state = np.expand_dims(state, axis=0)
-              tot_updates += 1
 
               if is_terminal:
                 break
 
-          episode_lengths.append(tot_updates)
-          sum_tot_iters += tot_updates
+          episode_count += 1
 
-        print("Average Episode Length:", sum(episode_lengths)/len(episode_lengths))
-        print("Average total reward:", cum_reward/len(episode_lengths))
-
+        print("Average total reward:", cum_reward/total_episodes)
         self.evaluating = False
-
 
