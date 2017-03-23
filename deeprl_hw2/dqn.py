@@ -9,6 +9,7 @@ from gym import wrappers
 from . import utils, objectives, policy
 import numpy as np
 import os
+import random
 
 class DQNAgent:
     """Class implementing DQN.
@@ -59,7 +60,8 @@ class DQNAgent:
                  batch_size,
                  epsilon,
                  output_folder,
-                 eval_every):
+                 eval_every,
+                 model_type):
 
         self.q_network = q_network
         self.preprocessor = preprocessor
@@ -69,10 +71,11 @@ class DQNAgent:
         self.num_burn_in = num_burn_in
         self.train_freq = train_freq
         self.batch_size = batch_size
-
         self.epsilon = epsilon
         self.output_folder = output_folder
         self.eval_every = eval_every
+        self.model_type = model_type
+
         self.sampling = True
         self.is_training = True
         self.target_q_network = Sequential()
@@ -182,6 +185,110 @@ class DQNAgent:
 
     def in_eval(self, episode_id):
         return self.evaluating
+
+    def fit_naive(self, env, num_iterations, max_episode_length):
+
+        os.mkdir(self.output_folder)
+
+        ## Logging stats and Recording video
+        env = wrappers.Monitor(env, self.output_folder, video_callable=self.in_eval)
+        loss_file = open(self.output_folder + "/loss_file", "w")
+
+        episode_lengths = []
+        episode_counter = 0
+        sum_tot_iters = 0
+        self.sampling = False
+
+        # Flag to indicate that eval should be done at the end of the episode
+        should_eval = False
+        eval_steps = self.eval_every
+        next_eval = eval_steps
+
+        while sum_tot_iters < num_iterations:
+          # self.policy = policy.GreedyEpsilonPolicy(self.epsilon)
+          self.policy = policy.LinearDecayGreedyEpsilonPolicy(1, 0.1, 1000000)
+          state = env.reset()
+          preprocessed_state = self.preprocessor.preprocess_state(state, mem=True)
+          state = np.stack([preprocessed_state] * 4, axis=2)
+          state = np.expand_dims(state, axis=0)
+          cum_reward = 0
+          cum_loss = 0
+          tot_updates = 0
+
+          for t in range(max_episode_length):
+
+              ## Evaluate Model every ~10,000 updates, nearest episode end
+              if (sum_tot_iters+tot_updates+1) % next_eval == 0:
+                  should_eval = True
+
+              ## Get next state
+              q_values = self.q_network.predict(state)
+
+              # chosen_action = self.select_action(q_values)
+              chosen_action = \
+                self.select_action(q_values, sum_tot_iters+tot_updates, True)
+
+              next_state, reward, is_terminal, info = env.step(chosen_action)
+              next_state = self.preprocessor.preprocess_state(next_state, mem=True)
+              state = np.squeeze(state, axis=0)
+              next_state = \
+                np.append(state[:,:,1:], np.expand_dims(next_state, 2), axis=2)
+              reward = self.preprocessor.preprocess_reward(reward)
+              
+              ## Calculate q-learning targets
+              q_values = self.q_network.predict(np.expand_dims(next_state, axis=0))
+              max_action = np.argmax(q_values[0])
+
+              target = \
+                reward + np.invert(is_terminal).astype(np.float32) * \
+                self.gamma * q_values[0][max_action]
+
+              target_one_hot = np.zeros(env.action_space.n)
+              target_one_hot[chosen_action] = target
+
+              ## Update parameters
+              loss = self.update_network(np.expand_dims(state, axis=0), np.expand_dims(target_one_hot, axis=0))
+              cum_loss += loss
+              tot_reward = reward
+              cum_reward += tot_reward
+
+              state = next_state
+              state = np.expand_dims(state, axis=0)
+              tot_updates += 1
+              print("\r[%i] Loss: %.5f" %
+                      (sum_tot_iters+tot_updates, loss/self.batch_size),
+                    "Reward:", cum_reward, end="")
+
+              loss_file.write("%i %.5f\n" %
+                                (sum_tot_iters+tot_updates, loss/self.batch_size))
+
+              if is_terminal:
+                break
+
+          episode_counter += 1
+          episode_lengths.append(tot_updates)
+          print("\nAverage reward per frame this episode:",
+                 cum_reward/(tot_updates*self.batch_size),
+                "\nEpisode Length:", tot_updates,
+                "\nNumber of Episodes:", episode_counter, "\n")
+
+          sum_tot_iters += tot_updates
+
+          ## Save Model
+          self.q_network.save(self.output_folder+'/model_file.h5')
+
+          # If we have to evaluate, do so and set the next evaluation iteration
+          if should_eval:
+              self.evaluate(env, num_iterations, max_episode_length,
+                            self.output_folder+'/model_file.h5',
+                            sum_tot_iters)
+              next_eval = sum_tot_iters + eval_steps
+              should_eval = False
+
+        loss_file.close()
+        print("\nAverage Episode Length: ", sum(episode_lengths)/len(episode_lengths))
+
+
 
     def fit(self, env, num_iterations, max_episode_length):
         """Fit your model to the provided environment.
@@ -305,11 +412,17 @@ class DQNAgent:
               ## Calculate q-learning targets
 
               q_values = self.q_network.predict_on_batch(next_states_batch)
+              target_q_values = self.target_q_network.predict_on_batch(next_states_batch)
 
               ## For double deep q-networks
               # max_actions = np.argmax(q_values, axis=1)
 
-              target_q_values = self.target_q_network.predict(next_states_batch)
+              ## For double linear q-networks
+              # choice = random.randint(0, 1)
+              # max_actions = np.argmax(target_q_values, axis=1) if choice == 0 \ 
+              # else np.argmax(q_values, axis=1)
+              
+              # For deep q-networks
               max_actions = np.argmax(target_q_values, axis=1)
 
               targets_batch = \

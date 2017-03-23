@@ -69,7 +69,7 @@ def create_model(window, input_shape, num_actions,
                # arguments={'nb_classes': num_actions},
                # output_shape=(num_actions)))
 
-    elif model_type=='linear':
+    elif model_type=='linear' or model_type=='naive':
 
         model.add(Flatten(input_shape= (84, 84, 4)))
         model.add(Dense(256))
@@ -139,7 +139,7 @@ def main():  # noqa: D103
     parser.add_argument('--target_update_freq', default=10000, type=int, help='Frequency of updating target network')
     parser.add_argument('--eval', action='store_true', help='Indicator to evaluate model on given environment')
     parser.add_argument('--filename', type=str, help='Filename for saved model to load during evaluation')
-    parser.add_argument('--model_type', type=str, help='Type of model to use: linear, deep, double, dueling')
+    parser.add_argument('--model_type', type=str, help='Type of model to use: naive, linear, deep, double, dueling')
     parser.add_argument('--initial_replay_size', default=50000, type=int, help='Initial size of the replay memory upto which a uniform random policy should be used')
     parser.add_argument('--evaluate_every', default=5000, type=int, help='Number of updates to run evaluation after')
     
@@ -170,10 +170,11 @@ def main():  # noqa: D103
     dqn = DQNAgent (model, preprocessor_seq, replay_mem, 
                    args.discount, args.target_update_freq, args.initial_replay_size,
                    args.train_freq, args.mb_size, args.eps, args.output,
-                   args.evaluate_every)
+                   args.evaluate_every, args.model_type)
 
     dqn.compile()
-    dqn.fit(env, args.iters, args.max_episode_len)
+    if args.model_type=='naive': dqn.fit_naive(env, args.iters, args.max_episode_len)
+    else: dqn.fit(env, args.iters, args.max_episode_len)
 
     if args.eval:
         dqn.evaluate(env, args.iters, args.max_episode_length, args.filename)
