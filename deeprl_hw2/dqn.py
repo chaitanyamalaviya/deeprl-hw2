@@ -235,6 +235,8 @@ class DQNAgent:
         env = wrappers.Monitor(env, self.output_folder, video_callable=self.in_eval)
         tbCallBack = TensorBoard(log_dir=self.output_folder, histogram_freq=0, write_graph=True, write_images=True)
 
+        loss_file = open(self.output_folder + "/loss_file", "w")
+
         episode_lengths = []
         episode_counter = 0
         sum_tot_iters = 0
@@ -331,6 +333,9 @@ class DQNAgent:
                       (sum_tot_iters+tot_updates, loss/self.batch_size),
                     "Reward:", cum_reward, end="")
 
+              loss_file.write("%i %.5f\n" %
+                                (sum_tot_iters+tot_updates, loss/self.batch_size))
+
               if is_terminal:
                 break
 
@@ -349,14 +354,16 @@ class DQNAgent:
           # If we have to evaluate, do so and set the next evaluation iteration
           if should_eval:
               self.evaluate(env, num_iterations, max_episode_length,
-                            self.output_folder+'/model_file.h5')
+                            self.output_folder+'/model_file.h5',
+                            sum_tot_iters)
               next_eval = sum_tot_iters + eval_steps
               should_eval = False
 
+        loss_file.close()
         print("\nAverage Episode Length: ", sum(episode_lengths)/len(episode_lengths))
 
 
-    def evaluate(self, env, num_iterations, max_episode_length, filename):
+    def evaluate(self, env, num_iterations, max_episode_length, filename, update_no):
         """Test your agent with a provided environment.
         
         You shouldn't update your network parameters here. Also if you
@@ -372,6 +379,8 @@ class DQNAgent:
         # Run policy
         # Collect stats - reward, avg episode length
         # Render env
+
+        rewards_file = open(self.output_folder + "/reward_file", "a")
 
         self.evaluating = True
 
@@ -412,5 +421,7 @@ class DQNAgent:
           episode_count += 1
 
         print("Average total reward:", cum_reward/total_episodes)
+        rewards_file.write("%i %f\n" % (update_no, cum_reward/total_episodes))
+        rewards_file.close()
         self.evaluating = False
 

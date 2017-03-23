@@ -141,7 +141,7 @@ def main():  # noqa: D103
     parser.add_argument('--filename', type=str, help='Filename for saved model to load during evaluation')
     parser.add_argument('--model_type', type=str, help='Type of model to use: linear, deep, double, dueling')
     parser.add_argument('--initial_replay_size', default=50000, type=int, help='Initial size of the replay memory upto which a uniform random policy should be used')
-    parser.add_argument('--evaluate_every', default=10000, type=int, help='Number of updates to run evaluation after')
+    parser.add_argument('--evaluate_every', default=5000, type=int, help='Number of updates to run evaluation after')
     
     args = parser.parse_args()
     #args.input_shape = tuple(args.input_shape)
