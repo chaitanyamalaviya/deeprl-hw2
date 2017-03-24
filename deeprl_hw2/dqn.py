@@ -324,6 +324,27 @@ class DQNAgent:
         preprocessed_state = self.preprocessor.preprocess_state(state, mem=True)
         state = np.stack([preprocessed_state] * 4, axis=2)
 
+        # Get a held out set of states whose Q-value would be observed during eval
+        qvalue_held_out_states = [state]
+        while True:
+            action = self.select_action()
+            next_state, reward, is_terminal, _ = env.step(action)
+            next_state = self.preprocessor.preprocess_state(next_state, mem=True)
+            next_state = np.append(state[:,:,1:], np.expand_dims(next_state, 2), axis=2)
+            qvalue_held_out_states.append(next_state)
+            if is_terminal:
+                state = env.reset()
+                preprocessed_state = self.preprocessor.preprocess_state(state, mem=True)
+                state = np.stack([preprocessed_state] * 4, axis=2)
+                break
+            else:
+                state = next_state
+
+        # Randomly sample 20 of the states from the episode
+        random.shuffle(qvalue_held_out_states)
+        qvalue_held_out_states = np.array(qvalue_held_out_states[:20])
+
+        # Initialize replay memory
         for i in range(self.num_burn_in):
             action = self.select_action()
             next_state, reward, is_terminal, _ = env.step(action)
@@ -356,7 +377,7 @@ class DQNAgent:
 
         while sum_tot_iters < num_iterations:
           #self.policy = policy.GreedyEpsilonPolicy(self.epsilon)
-          self.policy = policy.LinearDecayGreedyEpsilonPolicy(1, 0.1, 1000000)
+          self.policy = policy.LinearDecayGreedyEpsilonPolicy(1, 0.1, 100000)
           state = env.reset()
           preprocessed_state = self.preprocessor.preprocess_state(state, mem=True)
           state = np.stack([preprocessed_state] * 4, axis=2)
@@ -468,7 +489,7 @@ class DQNAgent:
           if should_eval:
               self.evaluate(env, num_iterations, max_episode_length,
                             self.output_folder+'/model_file.h5',
-                            sum_tot_iters)
+                            sum_tot_iters, qvalue_held_out_states)
               next_eval = sum_tot_iters + eval_steps
               should_eval = False
 
@@ -476,7 +497,7 @@ class DQNAgent:
         print("\nAverage Episode Length: ", sum(episode_lengths)/len(episode_lengths))
 
 
-    def evaluate(self, env, num_iterations, max_episode_length, filename, update_no):
+    def evaluate(self, env, num_iterations, max_episode_length, filename, update_no, qval_states):
         """Test your agent with a provided environment.
         
         You shouldn't update your network parameters here. Also if you
@@ -494,12 +515,14 @@ class DQNAgent:
         # Render env
 
         rewards_file = open(self.output_folder + "/reward_file", "a")
+        qvalues_file = open(self.output_folder + "/qvalues_file", "a")
 
         self.evaluating = True
 
         episode_count = 0
         total_episodes = 20
         self.sampling = False
+        cum_reward = 0.0
 
         while episode_count < total_episodes:
           self.policy = policy.GreedyPolicy()
@@ -508,7 +531,6 @@ class DQNAgent:
           preprocessed_state = self.preprocessor.preprocess_state(state, mem=True)
           state = np.stack([preprocessed_state] * 4, axis=2)
           state = np.expand_dims(state, axis=0)
-          cum_reward = 0
 
           for t in range(max_episode_length):
 
@@ -536,5 +558,12 @@ class DQNAgent:
         print("Average total reward:", cum_reward/total_episodes)
         rewards_file.write("%i %f\n" % (update_no, cum_reward/total_episodes))
         rewards_file.close()
+
+        # For each of the selected set of states, get the maximum Q-value, and average
+        # these to get the max avg Q-value for this eval run
+        avg_maxqval = np.mean(np.max(self.q_network.predict_on_batch(qval_states), axis=1))
+
+        qvalues_file.write("%i %.4f\n" % (update_no, avg_maxqval))
+        qvalues_file.close()
         self.evaluating = False
 
