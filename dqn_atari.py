@@ -55,7 +55,7 @@ def create_model(window, input_shape, num_actions,
     model = Sequential()
     #model.add(InputLayer(input_tensor=custom_input_tensor, input_shape=input_shape + (window,)))
     
-    if model_type=='deep':
+    if model_type=='deep' or model_type=='deep_double' or model_type=='dueling':
 
         model.add(Conv2D(16, (8, 8), input_shape= (84, 84, 4)))
         model.add(Activation('relu'))
@@ -69,7 +69,7 @@ def create_model(window, input_shape, num_actions,
                # arguments={'nb_classes': num_actions},
                # output_shape=(num_actions)))
 
-    elif model_type=='linear' or model_type=='naive':
+    elif model_type=='linear' or model_type=='naive' or model_type=='linear_double':
 
         model.add(Flatten(input_shape= (84, 84, 4)))
         model.add(Dense(256))
@@ -139,7 +139,7 @@ def main():  # noqa: D103
     parser.add_argument('--target_update_freq', default=10000, type=int, help='Frequency of updating target network')
     parser.add_argument('--eval', action='store_true', help='Indicator to evaluate model on given environment')
     parser.add_argument('--filename', type=str, help='Filename for saved model to load during evaluation')
-    parser.add_argument('--model_type', type=str, help='Type of model to use: naive, linear, deep, double, dueling')
+    parser.add_argument('--model_type', type=str, help='Type of model to use: naive, linear, deep, linear_double, deep_double, dueling')
     parser.add_argument('--initial_replay_size', default=50000, type=int, help='Initial size of the replay memory upto which a uniform random policy should be used')
     parser.add_argument('--evaluate_every', default=5000, type=int, help='Number of updates to run evaluation after')
     
