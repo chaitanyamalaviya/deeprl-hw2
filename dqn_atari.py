@@ -6,8 +6,8 @@ import random
 
 import numpy as np
 import tensorflow as tf
-from keras.layers import (Activation, Conv2D, Dense, Flatten, Input,
-                          Permute, InputLayer, Lambda)
+from keras.layers import (Activation, Conv2D, Dense, Flatten, Input, RepeatVector,
+                          Permute, InputLayer, Lambda, merge, add, average)
 from keras.models import Model, Sequential
 from keras.optimizers import Adam
 from keras import backend as K
@@ -55,7 +55,7 @@ def create_model(window, input_shape, num_actions,
     model = Sequential()
     #model.add(InputLayer(input_tensor=custom_input_tensor, input_shape=input_shape + (window,)))
     
-    if model_type=='deep' or model_type=='deep_double' or model_type=='dueling':
+    if model_type=='deep' or model_type=='deep_double':
 
         model.add(Conv2D(16, (8, 8), input_shape= (84, 84, 4)))
         model.add(Activation('relu'))
@@ -75,6 +75,24 @@ def create_model(window, input_shape, num_actions,
         model.add(Dense(256))
         model.add(Activation('relu'))
         model.add(Dense(num_actions))
+
+    elif model_type=='dueling':
+
+        input_state = Input(shape=(84, 84, 4))
+
+        l1 = Conv2D(16, (8, 8), activation='relu')(input_state)
+        l2 = Conv2D(32, (4, 4), activation='relu')(l1)
+
+        state_val_func = Dense(256, activation='relu')(l2)
+        adv_func = Dense(256, activation='relu')(l2)
+
+        adv = Dense(num_actions, activation='relu')(adv_func)
+        state_v = Dense(1, activation='relu')(state_val_func)
+
+        output = Lambda(lambda x, y: x + y - K.mean(y))(state_v, adv)
+        # output = add([state_v_repeat,  adv])
+
+        q_values = Dense(num_actions, activation='relu', name='q_values')(output)
 
     else:
 
