@@ -173,11 +173,12 @@ def main():  # noqa: D103
                    args.evaluate_every, args.model_type)
 
     dqn.compile()
-    if args.model_type=='naive': dqn.fit_naive(env, args.iters, args.max_episode_len)
-    else: dqn.fit(env, args.iters, args.max_episode_len)
-
     if args.eval:
-        dqn.evaluate(env, args.iters, args.max_episode_length, args.filename)
+        dqn.eval_on_file(env, args.filename)
+    else:
+        if args.model_type=='naive': dqn.fit_naive(env, args.iters, args.max_episode_len)
+        else: dqn.fit(env, args.iters, args.max_episode_len)
+
 
     # here is where you should start up a session,
     # create your DQN agent, create your model, etc.

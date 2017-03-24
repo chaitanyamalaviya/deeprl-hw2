@@ -1,6 +1,7 @@
 """Main DQN agent."""
 from __future__ import print_function, division
 from keras.optimizers import Adam
+from keras.models import load_model
 from keras.models import Model, Sequential
 from keras.callbacks import TensorBoard
 from deeprl_hw2.core import Preprocessor, ReplayMemory, Sample
@@ -526,7 +527,6 @@ class DQNAgent:
         loss_file.close()
         print("\nAverage Episode Length: ", sum(episode_lengths)/len(episode_lengths))
 
-
     def evaluate(self, env, num_iterations, max_episode_length, filename, update_no, qval_states):
         """Test your agent with a provided environment.
         
@@ -596,4 +596,50 @@ class DQNAgent:
         qvalues_file.write("%i %.4f\n" % (update_no, avg_maxqval))
         qvalues_file.close()
         self.evaluating = False
+
+    def eval_on_file(self, env, filename):
+        episode_count = 0
+        total_episodes = 20
+        self.sampling = False
+        cum_reward = 0.0
+
+        self.q_network = load_model(filename)
+
+        while episode_count < total_episodes:
+          self.policy = policy.GreedyPolicy()
+
+          state = env.reset()
+          preprocessed_state = self.preprocessor.preprocess_state(state, mem=True)
+          state = np.stack([preprocessed_state] * 4, axis=2)
+          state = np.expand_dims(state, axis=0)
+
+          while True:
+
+              ## Get next state
+              q_values = self.q_network.predict(state)
+              print("Q-values:")
+              print(q_values[0], "\n")
+              chosen_action = self.select_action(q_values)
+
+              next_state, reward, is_terminal, info = env.step(chosen_action)
+              next_state = self.preprocessor.preprocess_state(next_state, mem=True)
+              state = np.squeeze(state, axis=0)
+              next_state = \
+                np.append(state[:,:,1:], np.expand_dims(next_state, 2), axis=2)
+              cum_reward += reward
+
+              state = next_state
+              state = np.expand_dims(state, axis=0)
+
+              if is_terminal:
+                break
+
+          episode_count += 1
+
+        print("Average total reward:", cum_reward/total_episodes)
+
+        # For each of the selected set of states, get the maximum Q-value, and average
+        # these to get the max avg Q-value for this eval run
+        avg_maxqval = np.mean(np.max(self.q_network.predict_on_batch(qval_states), axis=1))
+        print(avg_maxqval)
 
