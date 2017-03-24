@@ -415,13 +415,13 @@ class DQNAgent:
               target_q_values = self.target_q_network.predict_on_batch(next_states_batch)
 
               ## For double deep q-networks
-              if args.model_type == 'deep_double':
+              if self.model_type == 'deep_double':
                 max_actions = np.argmax(q_values, axis=1)
 
               ## For double linear q-networks
-              elif args.model_type == 'linear_double':
+              elif self.model_type == 'linear_double':
                 choice = random.randint(0, 1)
-                max_actions = np.argmax(target_q_values, axis=1) if choice == 0 \ 
+                max_actions = np.argmax(target_q_values, axis=1) if choice == 0 \
                 else np.argmax(q_values, axis=1)
               
               # For deep q-networks
