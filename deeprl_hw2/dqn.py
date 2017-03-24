@@ -234,7 +234,7 @@ class DQNAgent:
               next_state = \
                 np.append(state[:,:,1:], np.expand_dims(next_state, 2), axis=2)
               reward = self.preprocessor.preprocess_reward(reward)
-              
+
               ## Calculate q-learning targets
               q_values = self.q_network.predict(np.expand_dims(next_state, axis=0))
               max_action = np.argmax(q_values[0])
@@ -436,15 +436,18 @@ class DQNAgent:
               target_q_values = self.target_q_network.predict_on_batch(next_states_batch)
 
               ## For double deep q-networks
-              # max_actions = np.argmax(q_values, axis=1)
+              if args.model_type == 'deep_double':
+                max_actions = np.argmax(q_values, axis=1)
 
               ## For double linear q-networks
-              # choice = random.randint(0, 1)
-              # max_actions = np.argmax(target_q_values, axis=1) if choice == 0 \ 
-              # else np.argmax(q_values, axis=1)
+              elif args.model_type == 'linear_double':
+                choice = random.randint(0, 1)
+                max_actions = np.argmax(target_q_values, axis=1) if choice == 0 \ 
+                else np.argmax(q_values, axis=1)
               
               # For deep q-networks
-              max_actions = np.argmax(target_q_values, axis=1)
+              else:
+                max_actions = np.argmax(target_q_values, axis=1)
 
               targets_batch = \
                 rewards_batch + np.invert(is_terminal_batch).astype(np.float32) * \
