@@ -204,8 +204,14 @@ class DQNAgent:
         eval_steps = self.eval_every
         next_eval = eval_steps
 
+        state = env.reset()
+        preprocessed_state = self.preprocessor.preprocess_state(state, mem=True)
+        state = np.stack([preprocessed_state] * 4, axis=2)
+
         # Get a held out set of states whose Q-value would be observed during eval
         qvalue_held_out_states = [state]
+        self.policy = policy.UniformRandomPolicy(env.action_space.n)
+        self.sampling = True
         while True:
             action = self.select_action()
             next_state, reward, is_terminal, _ = env.step(action)
@@ -223,8 +229,8 @@ class DQNAgent:
         # Randomly sample 20 of the states from the episode
         random.shuffle(qvalue_held_out_states)
         qvalue_held_out_states = np.array(qvalue_held_out_states[:20])
+        self.sampling = False
 
-        # Initialize replay memory
         while sum_tot_iters < num_iterations:
           # self.policy = policy.GreedyEpsilonPolicy(self.epsilon)
           self.policy = policy.LinearDecayGreedyEpsilonPolicy(1, 0.1, 100000)
