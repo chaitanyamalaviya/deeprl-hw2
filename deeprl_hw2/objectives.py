@@ -27,7 +27,7 @@ def huber_loss(y_true, y_pred, max_grad=1.):
 
     diff = tf.abs(y_true - y_pred)
     leqval = 0.5 * tf.square(diff)
-    gval = 0.5 * diff - 0.5 * tf.square(max_grad)
+    gval = max_grad * diff - 0.5 * tf.square(max_grad)
     return tf.where(tf.less(diff, max_grad), leqval, gval)
 
 def mean_huber_loss(y_true, y_pred, max_grad=1.):
@@ -54,7 +54,7 @@ def mean_huber_loss(y_true, y_pred, max_grad=1.):
 
     diff = tf.abs(y_true - y_pred)
     leqval = 0.5 * tf.square(diff)
-    gval = 0.5 * diff - 0.5 * tf.square(max_grad)
+    gval = max_grad * diff - 0.5 * tf.square(max_grad)
     huber_loss = tf.where(tf.less(diff, max_grad), leqval, gval)
 
     return tf.reduce_mean(huber_loss)
