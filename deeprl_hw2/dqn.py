@@ -232,6 +232,8 @@ class DQNAgent:
         qvalue_held_out_states = np.array(qvalue_held_out_states[:20])
         self.sampling = False
 
+        update_tick = 0
+
         while sum_tot_iters < num_iterations:
           # self.policy = policy.GreedyEpsilonPolicy(self.epsilon)
           self.policy = policy.LinearDecayGreedyEpsilonPolicy(1, 0.1, 100000)
@@ -262,6 +264,16 @@ class DQNAgent:
               next_state = \
                 np.append(state[:,:,1:], np.expand_dims(next_state, 2), axis=2)
               reward = self.preprocessor.preprocess_reward(reward)
+
+              # Only do the rest of the stuff once every self.train_freq steps
+              # tot_updates is not updated, so all other update logic is intact
+              update_tick = (update_tick + 1) % self.train_freq
+              if not update_tick == 0:
+                  state = np.expand_dims(next_state, axis=0)
+                  cum_reward += reward
+                  if is_terminal:
+                      break
+                  continue
 
               ## Calculate q-learning targets
               q_values = self.q_network.predict(np.expand_dims(next_state, axis=0))
@@ -294,19 +306,18 @@ class DQNAgent:
                 break
 
           episode_counter += 1
-          episode_lengths.append(tot_updates)
+          episode_lengths.append(tot_updates*4) # approximately this long
           print("\nAverage reward per frame this episode:",
-                 cum_reward/(tot_updates*self.batch_size),
-                "\nEpisode Length:", tot_updates,
+                 cum_reward/(tot_updates*4*self.batch_size),
+                "\nEpisode Length:", tot_updates*4,
                 "\nNumber of Episodes:", episode_counter, "\n")
 
           sum_tot_iters += tot_updates
 
-          ## Save Model
-          self.q_network.save(self.output_folder+'/model_file.h5')
-
           # If we have to evaluate, do so and set the next evaluation iteration
           if should_eval:
+              ## Save Model before evaluating
+              self.q_network.save(self.output_folder+'/model_file.h5')
               self.evaluate(env, num_iterations, max_episode_length,
                             self.output_folder+'/model_file.h5',
                             sum_tot_iters, qvalue_held_out_states)
@@ -403,6 +414,8 @@ class DQNAgent:
         eval_steps = self.eval_every
         next_eval = eval_steps
 
+        update_tick = 0
+
         while sum_tot_iters < num_iterations:
           #self.policy = policy.GreedyEpsilonPolicy(self.epsilon)
           self.policy = policy.LinearDecayGreedyEpsilonPolicy(1, 0.1, 100000)
@@ -442,6 +455,16 @@ class DQNAgent:
               ## Append current sample to replay memory
               self.memory.append(
                 Sample(state, chosen_action, reward, next_state, is_terminal))
+
+              # Only do the rest of the stuff once every self.train_freq steps
+              # tot_updates is not updated, so all other update logic is intact
+              update_tick = (update_tick + 1) % self.train_freq
+              if not update_tick == 0:
+                  state = np.expand_dims(next_state, axis=0)
+                  cum_reward += reward
+                  if is_terminal:
+                      break
+                  continue
               
               ## Sample minibatch from replay memory 
               samples = self.memory.sample(self.batch_size)
@@ -505,19 +528,18 @@ class DQNAgent:
                 break
 
           episode_counter += 1
-          episode_lengths.append(tot_updates)
+          episode_lengths.append(tot_updates*4) # approximately this long
           print("\nAverage reward per frame this episode:",
-                 cum_reward/(tot_updates*self.batch_size),
-                "\nEpisode Length:", tot_updates,
+                 cum_reward/(tot_updates*4*self.batch_size),
+                "\nEpisode Length:", tot_updates*4,
                 "\nNumber of Episodes:", episode_counter, "\n")
 
           sum_tot_iters += tot_updates
 
-          ## Save Model
-          self.q_network.save(self.output_folder+'/model_file.h5')
-
           # If we have to evaluate, do so and set the next evaluation iteration
           if should_eval:
+              ## Save Model before evaluating
+              self.q_network.save(self.output_folder+'/model_file.h5')
               self.evaluate(env, num_iterations, max_episode_length,
                             self.output_folder+'/model_file.h5',
                             sum_tot_iters, qvalue_held_out_states)
