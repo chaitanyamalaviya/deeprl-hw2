@@ -193,7 +193,7 @@ class DQNAgent:
 
         ## Logging stats and Recording video
         env = wrappers.Monitor(env, self.output_folder, video_callable=self.in_eval)
-        loss_file = open(self.output_folder + "/loss_file", "w")
+        loss_file = open(self.output_folder + "/loss_file_" + self.model_type, "w")
 
         episode_lengths = []
         episode_counter = 0
@@ -323,6 +323,7 @@ class DQNAgent:
                             sum_tot_iters, qvalue_held_out_states)
               next_eval = sum_tot_iters + eval_steps
               should_eval = False
+              loss_file.flush()
 
         loss_file.close()
         print("\nAverage Episode Length: ", sum(episode_lengths)/len(episode_lengths))
@@ -402,7 +403,7 @@ class DQNAgent:
         env = wrappers.Monitor(env, self.output_folder, video_callable=self.in_eval)
         tbCallBack = TensorBoard(log_dir=self.output_folder, histogram_freq=0, write_graph=True, write_images=True)
 
-        loss_file = open(self.output_folder + "/loss_file", "w")
+        loss_file = open(self.output_folder + "/loss_file_" + self.model_type, "w")
 
         episode_lengths = []
         episode_counter = 0
@@ -545,6 +546,7 @@ class DQNAgent:
                             sum_tot_iters, qvalue_held_out_states)
               next_eval = sum_tot_iters + eval_steps
               should_eval = False
+              loss_file.flush()
 
         loss_file.close()
         print("\nAverage Episode Length: ", sum(episode_lengths)/len(episode_lengths))
@@ -577,6 +579,11 @@ class DQNAgent:
         cum_reward = 0.0
 
         while episode_count < total_episodes:
+          if episode_count < 2:
+            self.evaluating = True
+          else:
+            self.evaluating = False
+
           self.policy = policy.GreedyPolicy()
 
           state = env.reset()
@@ -584,7 +591,7 @@ class DQNAgent:
           state = np.stack([preprocessed_state] * 4, axis=2)
           state = np.expand_dims(state, axis=0)
 
-          for t in range(max_episode_length):
+          while True:
 
               #if t%20==0: env.render()
 

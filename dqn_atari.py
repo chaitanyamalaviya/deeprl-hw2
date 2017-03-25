@@ -54,7 +54,7 @@ def create_model(window, input_shape, num_actions,
     #img = tf.placeholder(tf.float32, shape=input_shape + (window,))
     model = Sequential()
     #model.add(InputLayer(input_tensor=custom_input_tensor, input_shape=input_shape + (window,)))
-    
+
     if model_type=='deep' or model_type=='deep_double':
 
         model.add(Conv2D(16, (8, 8), input_shape= (84, 84, 4)))
@@ -152,7 +152,7 @@ def main():  # noqa: D103
     parser.add_argument('--eps', default=0.05, type=float, help='Epsilon value for epsilon-greedy exploration')
     parser.add_argument('--learning_rate', default=0.0001, type=float, help='Learning rate for training')
     parser.add_argument('--discount', default=0.99, type=float, help='Discounting factor')
-    parser.add_argument('--replay_mem_size', default=1000000, type=int, help='Maximum size of replay memory')
+    parser.add_argument('--replay_mem_size', default=500000, type=int, help='Maximum size of replay memory')
     parser.add_argument('--train_freq', default=3, type=int, help='Frequency of updating Q-network')
     parser.add_argument('--target_update_freq', default=10000, type=int, help='Frequency of updating target network')
     parser.add_argument('--eval', action='store_true', help='Indicator to evaluate model on given environment')
