@@ -603,7 +603,7 @@ class DQNAgent:
         self.sampling = False
         cum_reward = 0.0
 
-        self.q_network = load_model(filename)
+        self.q_network = load_model(filename, custom_objects={'mean_huber_loss':objectives.mean_huber_loss})
 
         while episode_count < total_episodes:
           self.policy = policy.GreedyPolicy()
