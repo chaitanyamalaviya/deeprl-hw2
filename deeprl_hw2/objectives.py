@@ -52,6 +52,8 @@ def mean_huber_loss(y_true, y_pred, max_grad=1.):
       The mean huber loss.
     """
 
+    y_pred = y_pred * tf.one_hot(tf.argmax(tf.abs(y_true), axis=1), y_pred.shape[1])
+
     diff = tf.abs(y_true - y_pred)
     leqval = 0.5 * tf.square(diff)
     gval = max_grad * diff - 0.5 * tf.square(max_grad)
