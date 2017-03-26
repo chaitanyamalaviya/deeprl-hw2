@@ -101,8 +101,9 @@ class DQNAgent:
         optimizer.
         """
 
-        self.target_q_network = \
-            utils.get_hard_target_model_updates(self.target_q_network, self.q_network)
+        if not self.model_type == "dueling":
+            self.target_q_network = \
+                utils.get_hard_target_model_updates(self.target_q_network, self.q_network)
 
         # Uncomment to use Adam Optimizer
         adam = Adam(lr=1e-6)
@@ -111,9 +112,10 @@ class DQNAgent:
                                optimizer=adam,
                                metrics=[])
 
-        self.target_q_network.compile(loss=objectives.mean_huber_loss,
-                                      optimizer=adam,
-                                      metrics=[])
+        if self.model_type == "linear_double":
+            self.target_q_network.compile(loss=objectives.mean_huber_loss,
+                                          optimizer=adam,
+                                          metrics=[])
 
         # Uncomment to use MSE loss
         #self.q_network.compile(loss='mean_squared_error',
