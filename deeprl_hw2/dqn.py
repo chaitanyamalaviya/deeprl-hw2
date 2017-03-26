@@ -91,7 +91,7 @@ class DQNAgent:
 
         This is a good place to create the target network, setup your
         loss function and any placeholders you might need.
-        
+
         You should use the mean_huber_loss function as your
         loss_function. You can also experiment with MSE and other
         losses.
@@ -110,6 +110,10 @@ class DQNAgent:
         self.q_network.compile(loss=objectives.mean_huber_loss,
                                optimizer=adam,
                                metrics=[])
+
+        self.target_q_network.compile(loss=objectives.mean_huber_loss,
+                                      optimizer=adam,
+                                      metrics=[])
 
         # Uncomment to use MSE loss
         #self.q_network.compile(loss='mean_squared_error',
@@ -180,8 +184,12 @@ class DQNAgent:
         You might want to return the loss and other metrics as an
         output. They can help you monitor how training is going.
         """
-        
+
         loss = self.q_network.train_on_batch(states_batch, targets_batch)
+        return loss
+
+    def update_target_network(self, states_batch, targets_batch):
+        loss = self.target_q_network.train_on_batch(states_batch, targets_batch)
         return loss
 
     def in_eval(self, episode_id):
@@ -251,8 +259,17 @@ class DQNAgent:
               if (sum_tot_iters+tot_updates+1) % next_eval == 0:
                   should_eval = True
 
+              choice = random.randint(0,1)
               ## Get next state
-              q_values = self.q_network.predict(state)
+              if self.model_type == "linear_double":
+                if choice == 0:
+                    q_values = self.q_network.predict(state)
+                else:
+                    q_values = self.target_q_network.predict(state)
+
+              # Naive model
+              else:
+                q_values = self.q_network.predict(state)
 
               # chosen_action = self.select_action(q_values)
               chosen_action = \
@@ -268,7 +285,7 @@ class DQNAgent:
               # Only do the rest of the stuff once every self.train_freq steps
               # tot_updates is not updated, so all other update logic is intact
               update_tick = (update_tick + 1) % self.train_freq
-              if not update_tick == 0:
+              if not update_tick == 0 and not self.model_type == "linear_double":
                   state = np.expand_dims(next_state, axis=0)
                   cum_reward += reward
                   if is_terminal:
@@ -276,18 +293,45 @@ class DQNAgent:
                   continue
 
               ## Calculate q-learning targets
-              q_values = self.q_network.predict(np.expand_dims(next_state, axis=0))
-              max_action = np.argmax(q_values[0])
+              if self.model_type == "linear_double":
+                  if choice == 0:
+                      q_values = self.q_network.predict(np.expand_dims(next_state, axis=0))
+                      max_action = np.argmax(q_values[0])
+                      target_q_values = self.target_q_network.predict(np.expand_dims(next_state, axis=0))
+                      target = \
+                        reward + np.invert(is_terminal).astype(np.float32) * \
+                        self.gamma * target_q_values[0][max_action]
 
-              target = \
-                reward + np.invert(is_terminal).astype(np.float32) * \
-                self.gamma * q_values[0][max_action]
+                  else:
+                      q_values = self.target_q_network.predict(np.expand_dims(next_state, axis=0))
+                      max_action = np.argmax(q_values[0])
+                      target_q_values = self.q_network.predict(np.expand_dims(next_state, axis=0))
+                      target = \
+                        reward + np.invert(is_terminal).astype(np.float32) * \
+                        self.gamma * target_q_values[0][max_action]
+
+              # Naive case
+              else:
+                  q_values = self.q_network.predict(np.expand_dims(next_state, axis=0))
+                  max_action = np.argmax(q_values[0])
+                  target = \
+                    reward + np.invert(is_terminal).astype(np.float32) * \
+                    self.gamma * q_values[0][max_action]
 
               target_one_hot = np.zeros(env.action_space.n)
               target_one_hot[chosen_action] = target
 
               ## Update parameters
-              loss = self.update_network(np.expand_dims(state, axis=0), np.expand_dims(target_one_hot, axis=0))
+              if self.model_type == "linear_double":
+                  if choice == 0:
+                    loss = self.update_network(np.expand_dims(state, axis=0), np.expand_dims(target_one_hot, axis=0))
+                  else:
+                    loss = self.update_target_network(np.expand_dims(state, axis=0), np.expand_dims(target_one_hot, axis=0))
+
+              # Naive case
+              else:
+                  loss = self.update_network(np.expand_dims(state, axis=0), np.expand_dims(target_one_hot, axis=0))
+
               cum_loss += loss
               tot_reward = reward
               cum_reward += tot_reward
@@ -296,11 +340,11 @@ class DQNAgent:
               state = np.expand_dims(state, axis=0)
               tot_updates += 1
               print("\r[%i] Loss: %.8f" %
-                      (sum_tot_iters+tot_updates, loss/self.batch_size),
+                      (sum_tot_iters+tot_updates, loss),
                     "Reward:", cum_reward, end="")
 
               loss_file.write("%i %.8f\n" %
-                                (sum_tot_iters+tot_updates, loss/self.batch_size))
+                                (sum_tot_iters+tot_updates, loss))
 
               if is_terminal:
                 break
@@ -465,8 +509,8 @@ class DQNAgent:
                   if is_terminal:
                       break
                   continue
-              
-              ## Sample minibatch from replay memory 
+
+              ## Sample minibatch from replay memory
               samples = self.memory.sample(self.batch_size)
               sample_props  = [s.get_props() for s in samples]
 
@@ -490,12 +534,6 @@ class DQNAgent:
               if self.model_type == 'deep_double':
                 max_actions = np.argmax(q_values, axis=1)
 
-              ## For double linear q-networks
-              elif self.model_type == 'linear_double':
-                choice = random.randint(0, 1)
-                max_actions = np.argmax(target_q_values, axis=1) if choice == 0 \
-                else np.argmax(q_values, axis=1)
-              
               # For deep q-networks
               else:
                 max_actions = np.argmax(target_q_values, axis=1)
@@ -552,7 +590,7 @@ class DQNAgent:
 
     def evaluate(self, env, num_iterations, max_episode_length, filename, update_no, qval_states):
         """Test your agent with a provided environment.
-        
+
         You shouldn't update your network parameters here. Also if you
         have any layers that vary in behavior between train/test time
         (such as dropout or batch norm), you should set them to test.
