@@ -243,8 +243,8 @@ class DQNAgent:
         update_tick = 0
 
         while sum_tot_iters < num_iterations:
-          # self.policy = policy.GreedyEpsilonPolicy(self.epsilon)
-          self.policy = policy.LinearDecayGreedyEpsilonPolicy(1, 0.1, 100000)
+          self.policy = policy.GreedyEpsilonPolicy(self.epsilon)
+          # self.policy = policy.LinearDecayGreedyEpsilonPolicy(1, 0.1, 100000)
           state = env.reset()
           preprocessed_state = self.preprocessor.preprocess_state(state, mem=True)
           state = np.stack([preprocessed_state] * 4, axis=2)
@@ -262,18 +262,19 @@ class DQNAgent:
               choice = random.randint(0,1)
               ## Get next state
               if self.model_type == "linear_double":
-                if choice == 0:
-                    q_values = self.q_network.predict(state)
-                else:
-                    q_values = self.target_q_network.predict(state)
+                # if choice == 0:
+                #     q_values = self.q_network.predict(state)
+                # else:
+                #     q_values = self.target_q_network.predict(state)
+                q_values = self.q_network.predict(state) + self.target_q_network.predict(state)
 
               # Naive model
               else:
                 q_values = self.q_network.predict(state)
 
-              # chosen_action = self.select_action(q_values)
-              chosen_action = \
-                self.select_action(q_values, sum_tot_iters+tot_updates, True)
+              chosen_action = self.select_action(q_values)
+              # chosen_action = \
+                # self.select_action(q_values, sum_tot_iters+tot_updates, True)
 
               next_state, reward, is_terminal, info = env.step(chosen_action)
               next_state = self.preprocessor.preprocess_state(next_state, mem=True)
@@ -300,7 +301,7 @@ class DQNAgent:
                       target_q_values = self.target_q_network.predict(np.expand_dims(next_state, axis=0))
                       target = \
                         reward + np.invert(is_terminal).astype(np.float32) * \
-                        self.gamma * target_q_values[0][max_action]
+                        self.gamma * target_q_values[0][max_action] 
 
                   else:
                       q_values = self.target_q_network.predict(np.expand_dims(next_state, axis=0))
@@ -708,4 +709,3 @@ class DQNAgent:
         # these to get the max avg Q-value for this eval run
         avg_maxqval = np.mean(np.max(self.q_network.predict_on_batch(qval_states), axis=1))
         print(avg_maxqval)
-
