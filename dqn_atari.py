@@ -10,6 +10,7 @@ from keras.layers import (Activation, Conv2D, Dense, Flatten, Input, RepeatVecto
                           Permute, InputLayer, Lambda, merge, add, average)
 from keras.models import Model, Sequential
 from keras.optimizers import Adam
+from keras.initializers import RandomNormal
 from keras import backend as K
 
 import gym
@@ -55,16 +56,18 @@ def create_model(window, input_shape, num_actions,
     model = Sequential()
     #model.add(InputLayer(input_tensor=custom_input_tensor, input_shape=input_shape + (window,)))
 
+    custom_init = RandomNormal(mean=0.0, stddev=0.01)
+
     if model_type=='deep' or model_type=='deep_double':
 
-        model.add(Conv2D(16, (8, 8), input_shape= (84, 84, 4)))
+        model.add(Conv2D(16, (8, 8), input_shape= (84, 84, 4), kernel_initializer=custom_init))
         model.add(Activation('relu'))
-        model.add(Conv2D(32, (4, 4)))
+        model.add(Conv2D(32, (4, 4), kernel_initializer=custom_init))
         model.add(Activation('relu'))
         model.add(Flatten())
-        model.add(Dense(256))
+        model.add(Dense(256, kernel_initializer=custom_init))
         model.add(Activation('relu'))
-        model.add(Dense(num_actions))
+        model.add(Dense(num_actions, kernel_initializer=custom_init))
         # model.add(Lambda(K.one_hot,
                # arguments={'nb_classes': num_actions},
                # output_shape=(num_actions)))
@@ -72,9 +75,9 @@ def create_model(window, input_shape, num_actions,
     elif model_type=='linear' or model_type=='naive' or model_type=='linear_double':
 
         model.add(Flatten(input_shape= (84, 84, 4)))
-        model.add(Dense(256))
+        model.add(Dense(256, kernel_initializer=custom_init))
         model.add(Activation('relu'))
-        model.add(Dense(num_actions))
+        model.add(Dense(num_actions, kernel_initializer=custom_init))
 
     elif model_type=='dueling':
 

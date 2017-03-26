@@ -295,11 +295,11 @@ class DQNAgent:
               state = next_state
               state = np.expand_dims(state, axis=0)
               tot_updates += 1
-              print("\r[%i] Loss: %.5f" %
+              print("\r[%i] Loss: %.8f" %
                       (sum_tot_iters+tot_updates, loss/self.batch_size),
                     "Reward:", cum_reward, end="")
 
-              loss_file.write("%i %.5f\n" %
+              loss_file.write("%i %.8f\n" %
                                 (sum_tot_iters+tot_updates, loss/self.batch_size))
 
               if is_terminal:
@@ -518,11 +518,11 @@ class DQNAgent:
               state = next_state
               state = np.expand_dims(state, axis=0)
               tot_updates += 1
-              print("\r[%i] Loss: %.5f" %
+              print("\r[%i] Loss: %.8f" %
                       (sum_tot_iters+tot_updates, loss/self.batch_size),
                     "Reward:", cum_reward, end="")
 
-              loss_file.write("%i %.5f\n" %
+              loss_file.write("%i %.8f\n" %
                                 (sum_tot_iters+tot_updates, loss/self.batch_size))
 
               if is_terminal:
