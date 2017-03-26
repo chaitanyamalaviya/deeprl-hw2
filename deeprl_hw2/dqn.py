@@ -401,7 +401,6 @@ class DQNAgent:
 
         ## Logging stats and Recording video
         env = wrappers.Monitor(env, self.output_folder, video_callable=self.in_eval)
-        tbCallBack = TensorBoard(log_dir=self.output_folder, histogram_freq=0, write_graph=True, write_images=True)
 
         loss_file = open(self.output_folder + "/loss_file_" + self.model_type, "w")
 

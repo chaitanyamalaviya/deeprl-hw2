@@ -11,7 +11,6 @@ from keras.layers import (Activation, Conv2D, Dense, Flatten, Input, RepeatVecto
 from keras.models import Model, Sequential
 from keras.optimizers import Adam
 from keras.initializers import RandomNormal
-from keras import backend as K
 
 import gym
 import deeprl_hw2 as tfrl
@@ -177,10 +176,6 @@ def main():  # noqa: D103
     # Create model
     preprocessed_input_shape = (84,84)
     model = create_model(args.frame_count, preprocessed_input_shape, env.action_space.n, args.env+"-test", args.model_type)
-
-    # Create session
-    sess = tf.Session()
-    K.set_session(sess)
 
     # Initialize replay memory
     replay_mem = ReplayMemory(args.replay_mem_size, args.frame_count)
