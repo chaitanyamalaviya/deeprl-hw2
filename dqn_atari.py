@@ -11,7 +11,8 @@ from keras.layers import (Activation, Conv2D, Dense, Flatten, Input, RepeatVecto
 from keras.models import Model, Sequential
 from keras.optimizers import Adam
 from keras.initializers import RandomNormal
-
+from keras import backend as K
+import theano.tensor as T
 import gym
 import deeprl_hw2 as tfrl
 from deeprl_hw2.dqn import DQNAgent
@@ -91,8 +92,11 @@ def create_model(window, input_shape, num_actions,
         adv = Dense(num_actions, activation='relu')(adv_func)
         state_v = Dense(1, activation='relu')(state_val_func)
 
-        output = Lambda(lambda x, y: x + y - K.mean(y))(state_v, adv)
-        # output = add([state_v_repeat,  adv])
+        # output = Lambda(lambda x, y: x + y - K.mean(y))(state_v, adv)
+        mean = average()
+        output = add([state_v, adv, ])
+
+        # output = T.add(state_v, adv, -1 * T.mean(adv))
 
         q_values = Dense(num_actions, activation='relu', name='q_values')(output)
 
