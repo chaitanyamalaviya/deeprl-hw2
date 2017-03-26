@@ -196,7 +196,8 @@ def main():  # noqa: D103
     if args.eval:
         dqn.eval_on_file(env, args.filename)
     else:
-        if args.model_type=='naive': dqn.fit_naive(env, args.iters, args.max_episode_len)
+        if args.model_type=='naive' or args.model_type=='linear_double':
+            dqn.fit_naive(env, args.iters, args.max_episode_len)
         else: dqn.fit(env, args.iters, args.max_episode_len)
 
 
