@@ -5,7 +5,6 @@ import os
 import random
 
 import numpy as np
-import tensorflow as tf
 from keras.layers import (Activation, Conv2D, Dense, Flatten, Input, RepeatVector,
                           Permute, InputLayer, Lambda, merge, add, average)
 from keras.models import Model, Sequential
@@ -57,18 +56,18 @@ def create_model(window, input_shape, num_actions,
     model = Sequential()
     #model.add(InputLayer(input_tensor=custom_input_tensor, input_shape=input_shape + (window,)))
 
-    custom_init = RandomNormal(mean=0.0, stddev=0.01)
+    #custom_init = RandomNormal(mean=0.0, stddev=0.01)
 
     if model_type=='deep' or model_type=='deep_double':
 
-        model.add(Conv2D(16, (8, 8), input_shape= (84, 84, 4), kernel_initializer=custom_init))
+        model.add(Conv2D(16, (8, 8), input_shape= (84, 84, 4)))
         model.add(Activation('relu'))
-        model.add(Conv2D(32, (4, 4), kernel_initializer=custom_init))
+        model.add(Conv2D(32, (4, 4)))
         model.add(Activation('relu'))
         model.add(Flatten())
-        model.add(Dense(256, kernel_initializer=custom_init))
+        model.add(Dense(256))
         model.add(Activation('relu'))
-        model.add(Dense(num_actions, kernel_initializer=custom_init))
+        model.add(Dense(num_actions))
         # model.add(Lambda(K.one_hot,
                # arguments={'nb_classes': num_actions},
                # output_shape=(num_actions)))
@@ -76,9 +75,9 @@ def create_model(window, input_shape, num_actions,
     elif model_type=='linear' or model_type=='naive' or model_type=='linear_double':
 
         model.add(Flatten(input_shape= (84, 84, 4)))
-        model.add(Dense(256, kernel_initializer=custom_init))
+        model.add(Dense(256))
         model.add(Activation('relu'))
-        model.add(Dense(num_actions, kernel_initializer=custom_init))
+        model.add(Dense(num_actions))
 
     elif model_type=='dueling':
 
@@ -103,7 +102,7 @@ def create_model(window, input_shape, num_actions,
         q_values = Lambda(lambda a: K.expand_dims(a[:, 0], axis=-1) + a[:, 1:] - K.mean(a[:, 1:], keepdims=True),
                    output_shape=(num_actions,))(y)
 
-        model = Model(input=input_state, outputs=q_values)
+        model = Model(inputs=input_state, outputs=q_values)
 
     else:
 
@@ -171,7 +170,7 @@ def main():  # noqa: D103
     parser.add_argument('--model_type', type=str, help='Type of model to use: naive, linear, deep, linear_double, deep_double, dueling')
     parser.add_argument('--initial_replay_size', default=50000, type=int, help='Initial size of the replay memory upto which a uniform random policy should be used')
     parser.add_argument('--evaluate_every', default=5000, type=int, help='Number of updates to run evaluation after')
-    
+
     args = parser.parse_args()
     #args.input_shape = tuple(args.input_shape)
 
@@ -192,7 +191,7 @@ def main():  # noqa: D103
     # Create agent
     preprocessor_seq = PreprocessorSequence([AtariPreprocessor(preprocessed_input_shape)])
 
-    dqn = DQNAgent (model, preprocessor_seq, replay_mem, 
+    dqn = DQNAgent (model, preprocessor_seq, replay_mem,
                    args.discount, args.target_update_freq, args.initial_replay_size,
                    args.train_freq, args.mb_size, args.eps, args.output,
                    args.evaluate_every, args.model_type)

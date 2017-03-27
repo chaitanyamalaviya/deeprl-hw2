@@ -205,7 +205,6 @@ class DQNAgent:
         os.mkdir(self.output_folder)
 
         ## Logging stats and Recording video
-        env = wrappers.Monitor(env, self.output_folder, video_callable=self.in_eval)
         loss_file = open(self.output_folder + "/loss_file_" + self.model_type, "w")
 
         episode_lengths = []
@@ -246,10 +245,11 @@ class DQNAgent:
         self.sampling = False
 
         update_tick = 0
+        total_steps = 0
 
         while sum_tot_iters < num_iterations:
-          self.policy = policy.GreedyEpsilonPolicy(self.epsilon)
-          # self.policy = policy.LinearDecayGreedyEpsilonPolicy(1, 0.1, 100000)
+          #self.policy = policy.GreedyEpsilonPolicy(self.epsilon)
+          self.policy = policy.LinearDecayGreedyEpsilonPolicy(1, 0.1, 1000000)
           state = env.reset()
           preprocessed_state = self.preprocessor.preprocess_state(state, mem=True)
           state = np.stack([preprocessed_state] * 4, axis=2)
@@ -259,6 +259,7 @@ class DQNAgent:
           tot_updates = 0
 
           for t in range(max_episode_length):
+              total_steps += 1
 
               ## Evaluate Model every ~10,000 updates, nearest episode end
               if (sum_tot_iters+tot_updates+1) % next_eval == 0:
@@ -277,9 +278,9 @@ class DQNAgent:
               else:
                 q_values = self.q_network.predict(state)
 
-              chosen_action = self.select_action(q_values)
-              # chosen_action = \
-                # self.select_action(q_values, sum_tot_iters+tot_updates, True)
+              # chosen_action = self.select_action(q_values)
+              chosen_action = \
+                self.select_action(q_values, total_steps, True)
 
               next_state, reward, is_terminal, info = env.step(chosen_action)
               next_state = self.preprocessor.preprocess_state(next_state, mem=True)
@@ -306,7 +307,7 @@ class DQNAgent:
                       target_q_values = self.target_q_network.predict(np.expand_dims(next_state, axis=0))
                       target = \
                         reward + np.invert(is_terminal).astype(np.float32) * \
-                        self.gamma * target_q_values[0][max_action] 
+                        self.gamma * target_q_values[0][max_action]
 
                   else:
                       q_values = self.target_q_network.predict(np.expand_dims(next_state, axis=0))
@@ -346,14 +347,14 @@ class DQNAgent:
               state = np.expand_dims(state, axis=0)
               tot_updates += 1
               print("\r[%i] Loss: %.8f" %
-                      (sum_tot_iters+tot_updates, loss),
+                      (sum_tot_iters+tot_updates, cum_loss/tot_updates),
                     "Reward:", cum_reward, end="")
-
-              loss_file.write("%i %.8f\n" %
-                                (sum_tot_iters+tot_updates, loss))
 
               if is_terminal:
                 break
+
+          loss_file.write("%i %.8f\n" %
+                         (sum_tot_iters+tot_updates, cum_loss/tot_updates))
 
           episode_counter += 1
           episode_lengths.append(tot_updates*4) # approximately this long
@@ -368,6 +369,7 @@ class DQNAgent:
           if should_eval:
               ## Save Model before evaluating
               self.q_network.save(self.output_folder+'/model_file.h5')
+              env.reset()
               self.evaluate(env, num_iterations, max_episode_length,
                             self.output_folder+'/model_file.h5',
                             sum_tot_iters, qvalue_held_out_states)
@@ -449,9 +451,6 @@ class DQNAgent:
             else:
                 state = next_state
 
-        ## Logging stats and Recording video
-        env = wrappers.Monitor(env, self.output_folder, video_callable=self.in_eval)
-
         loss_file = open(self.output_folder + "/loss_file_" + self.model_type, "w")
 
         episode_lengths = []
@@ -465,10 +464,11 @@ class DQNAgent:
         next_eval = eval_steps
 
         update_tick = 0
+        total_steps = 0
 
         while sum_tot_iters < num_iterations:
           #self.policy = policy.GreedyEpsilonPolicy(self.epsilon)
-          self.policy = policy.LinearDecayGreedyEpsilonPolicy(1, 0.1, 100000)
+          self.policy = policy.LinearDecayGreedyEpsilonPolicy(1, 0.1, 1000000)
           state = env.reset()
           preprocessed_state = self.preprocessor.preprocess_state(state, mem=True)
           state = np.stack([preprocessed_state] * 4, axis=2)
@@ -478,12 +478,20 @@ class DQNAgent:
           tot_updates = 0
 
           for t in range(max_episode_length):
+              total_steps += 1
 
               ## Update target q-network at a frequency
-              if (sum_tot_iters+tot_updates+1) % self.target_update_freq == 0:
+              if (sum_tot_iters+tot_updates+1) % self.target_update_freq == 0 and self.model_type != 'dueling':
                 self.target_q_network = \
                     utils.get_hard_target_model_updates(self.target_q_network,
                                                         self.q_network)
+
+
+              ## Update target q-network at a frequency
+              if (sum_tot_iters+tot_updates+1) % self.target_update_freq == 0 and self.model_type == 'dueling':
+                self.target_q_network = \
+                    utils.get_hard_target_model_updates(self.target_q_network,
+                                                        self.q_network, True)
 
               ## Evaluate Model every ~10,000 updates, nearest episode end
               if (sum_tot_iters+tot_updates+1) % next_eval == 0:
@@ -494,7 +502,7 @@ class DQNAgent:
 
               # chosen_action = self.select_action(q_values)
               chosen_action = \
-                self.select_action(q_values, sum_tot_iters+tot_updates, True)
+                self.select_action(q_values, total_steps, True)
 
               next_state, reward, is_terminal, info = env.step(chosen_action)
               next_state = self.preprocessor.preprocess_state(next_state, mem=True)
@@ -562,14 +570,14 @@ class DQNAgent:
               state = np.expand_dims(state, axis=0)
               tot_updates += 1
               print("\r[%i] Loss: %.8f" %
-                      (sum_tot_iters+tot_updates, loss/self.batch_size),
+                      (sum_tot_iters+tot_updates, cum_loss/tot_updates),
                     "Reward:", cum_reward, end="")
-
-              loss_file.write("%i %.8f\n" %
-                                (sum_tot_iters+tot_updates, loss/self.batch_size))
 
               if is_terminal:
                 break
+
+          loss_file.write("%i %.8f\n" %
+                          (sum_tot_iters+tot_updates, cum_loss/tot_updates))
 
           episode_counter += 1
           episode_lengths.append(tot_updates*4) # approximately this long
@@ -584,6 +592,7 @@ class DQNAgent:
           if should_eval:
               ## Save Model before evaluating
               self.q_network.save(self.output_folder+'/model_file.h5')
+              env.reset()
               self.evaluate(env, num_iterations, max_episode_length,
                             self.output_folder+'/model_file.h5',
                             sum_tot_iters, qvalue_held_out_states)
@@ -610,6 +619,10 @@ class DQNAgent:
         # Run policy
         # Collect stats - reward, avg episode length
         # Render env
+
+        ## Logging stats and Recording video
+        env = wrappers.Monitor(env, self.output_folder+"/"+str(update_no),
+                               video_callable=self.in_eval)
 
         rewards_file = open(self.output_folder + "/reward_file", "a")
         qvalues_file = open(self.output_folder + "/qvalues_file", "a")
@@ -675,6 +688,7 @@ class DQNAgent:
         self.sampling = False
         cum_reward = 0.0
 
+        env = wrappers.Monitor(env, self.output_folder, video_callable=self.in_eval)
         self.q_network = load_model(filename, custom_objects={'mean_huber_loss':objectives.mean_huber_loss})
 
         while episode_count < total_episodes:
