@@ -38,7 +38,7 @@ def get_soft_target_model_updates(target, source, tau):
     return target
 
 
-def get_hard_target_model_updates(target, source):
+def get_hard_target_model_updates(target, source, dueling=False):
     """Return list of target model update ops.
 
     These are hard target updates. The source weights are copied
@@ -50,7 +50,8 @@ def get_hard_target_model_updates(target, source):
       The target model. Should have same architecture as source model.
     source: keras.models.Model
       The source model. Should have same architecture as target model.
-
+    dueling: Boolean
+      Dueling architecture
     Returns
     -------
     list(tf.Tensor)
@@ -58,7 +59,8 @@ def get_hard_target_model_updates(target, source):
     """
     config_src = source.get_config()
     weights_src = source.get_weights()
-    target = Sequential.from_config(config_src)
+    if dueling: target = Model.from_config(config_src)
+    else: target = Sequential.from_config(config_src)
     target.set_weights(weights_src)
     return target
 

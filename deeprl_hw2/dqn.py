@@ -101,8 +101,11 @@ class DQNAgent:
         optimizer.
         """
 
-        if not self.model_type == "dueling":
+        if self.model_type == "dueling":
             self.target_q_network = \
+                utils.get_hard_target_model_updates(self.target_q_network, self.q_network, True)
+        else:
+          self.target_q_network = \
                 utils.get_hard_target_model_updates(self.target_q_network, self.q_network)
 
         # Uncomment to use Adam Optimizer
@@ -112,7 +115,7 @@ class DQNAgent:
                                optimizer=adam,
                                metrics=[])
 
-        if self.model_type == "linear_double":
+        if self.model_type == "linear_double" or self.model_type== "dueling":
             self.target_q_network.compile(loss=objectives.mean_huber_loss,
                                           optimizer=adam,
                                           metrics=[])
@@ -534,7 +537,7 @@ class DQNAgent:
               target_q_values = self.target_q_network.predict_on_batch(next_states_batch)
 
               ## For double deep q-networks
-              if self.model_type == 'deep_double':
+              if self.model_type == 'deep_double' or self.model_type == 'dueling':
                 max_actions = np.argmax(q_values, axis=1)
 
               # For deep q-networks

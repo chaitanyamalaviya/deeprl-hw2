@@ -89,16 +89,21 @@ def create_model(window, input_shape, num_actions,
 
         flattened_l2 = Flatten()(l2)
 
-        state_val_func = Dense(256, activation='relu')(flattened_l2)
-        adv_func = Dense(256, activation='relu')(flattened_l2)
+        y = Dense(num_actions + 1)(flattened_l2)
 
-        adv = Dense(num_actions, activation='relu')(adv_func)
-        state_v = Dense(1, activation='relu')(state_val_func)
+        # state_val_func = Dense(256, activation='relu')(flattened_l2)
+        # adv_func = Dense(256, activation='relu')(flattened_l2)
 
-        #q_values = Lambda(lambda x:x[0] + (x[1]-K.mean(x[1])),
-        #                  output_shape=(1,6))([state_v, adv])
+        # adv = Dense(num_actions, activation='relu')(adv_func)
+        # state_v = Dense(1, activation='relu')(state_val_func)
 
-        model = Model(input=[input_state], output=[q_values])
+        # q_values = Lambda(lambda x:x[0] + (x[1] - K.mean(x[1])),
+        #                  output_shape=(None,6))([state_v, adv])
+
+        q_values = Lambda(lambda a: K.expand_dims(a[:, 0], axis=-1) + a[:, 1:] - K.mean(a[:, 1:], keepdims=True),
+                   output_shape=(num_actions,))(y)
+
+        model = Model(input=input_state, outputs=q_values)
 
     else:
 
